@@ -1,0 +1,78 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.lvpiggyqq/xcatcher",
+  "title": "Xcatcher (XCATCHER)",
+  "description": "Remote MCP for X/Twitter crawling and XLSX export.",
+  "version": "1.0.0",
+  "websiteUrl": "https://xcatcher.top/docs/",
+  "repository": {
+    "url": "https://github.com/lvpiggyqq/xcatcher-mcp-manifest",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://xcatcher.top/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer xc_live_... API key (required).",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "product": "Xcatcher",
+      "publisher": "lvpiggyqq",
+      "category": [
+        "social-intelligence",
+        "osint",
+        "market-research",
+        "automation"
+      ],
+      "keywords": [
+        "X",
+        "Twitter",
+        "crawl",
+        "scrape",
+        "profiles",
+        "posts",
+        "threads",
+        "export",
+        "xlsx",
+        "signals",
+        "monitoring",
+        "remote-mcp",
+        "streamable-http"
+      ],
+      "auth": {
+        "type": "bearer",
+        "header": "Authorization",
+        "tokenPrefix": "Bearer",
+        "note": "Keys are issued/rotated via REST auth endpoints. Missing/invalid keys return 401."
+      },
+      "endpoints": {
+        "baseUrl": "https://xcatcher.top",
+        "mcp": "https://xcatcher.top/mcp",
+        "docs": "https://xcatcher.top/docs/",
+        "health": "https://xcatcher.top/mcp/health",
+        "restApiBase": "https://xcatcher.top/api/v1"
+      },
+      "capabilities": [
+        "Create crawl tasks for one or more X usernames",
+        "Poll task status until completion",
+        "Return a download URL for result files (still requires Bearer auth)",
+        "Cancel queued tasks (subject to backend policy)"
+      ],
+      "recommendedFlow": [
+        "create_crawl_task",
+        "get_task_status (poll)",
+        "get_result_download_url",
+        "download via authenticated URL"
+      ]
+    }
+  }
+}
