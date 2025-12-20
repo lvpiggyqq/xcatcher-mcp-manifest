@@ -1,0 +1,1 @@
+# xcatcher-mcp-manifest
