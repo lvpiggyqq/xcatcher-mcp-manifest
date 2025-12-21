@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.lvpiggyqq/xcatcher",
   "title": "Xcatcher (XCATCHER)",
-  "description": "Remote MCP for X/Twitter crawling and XLSX export.",
-  "version": "1.0.0",
+  "description": "Remote MCP for high-throughput X/Twitter crawling and XLSX export.",
+  "version": "1.0.1",
   "websiteUrl": "https://xcatcher.top/docs/",
   "repository": {
     "url": "https://github.com/lvpiggyqq/xcatcher-mcp-manifest",
@@ -36,43 +36,44 @@
       "keywords": [
         "X",
         "Twitter",
+        "high-throughput",
+        "concurrency",
+        "latest-posts",
         "crawl",
-        "scrape",
-        "profiles",
-        "posts",
-        "threads",
         "export",
         "xlsx",
-        "signals",
-        "monitoring",
         "remote-mcp",
         "streamable-http"
       ],
-      "auth": {
-        "type": "bearer",
-        "header": "Authorization",
-        "tokenPrefix": "Bearer",
-        "note": "Keys are issued/rotated via REST auth endpoints. Missing/invalid keys return 401."
-      },
-      "endpoints": {
-        "baseUrl": "https://xcatcher.top",
-        "mcp": "https://xcatcher.top/mcp",
-        "docs": "https://xcatcher.top/docs/",
-        "health": "https://xcatcher.top/mcp/health",
-        "restApiBase": "https://xcatcher.top/api/v1"
-      },
-      "capabilities": [
-        "Create crawl tasks for one or more X usernames",
-        "Poll task status until completion",
-        "Return a download URL for result files (still requires Bearer auth)",
-        "Cancel queued tasks (subject to backend policy)"
+      "highlights": [
+        "Optimized for batch 'latest posts' retrieval across large sets of X users",
+        "Normal mode targets fast turnaround for fresh-content monitoring",
+        "Deep mode targets deeper per-user collection (typically slower)"
       ],
-      "recommendedFlow": [
-        "create_crawl_task",
-        "get_task_status (poll)",
-        "get_result_download_url",
-        "download via authenticated URL"
-      ]
+      "modes": {
+        "normal": "Fast latest-post snapshot at scale (fresh-feed monitoring).",
+        "deep": "Deeper per-user collection/enrichment (slower; higher resource usage)."
+      },
+      "performanceNotes": [
+        "Typical benchmark (Normal): ~1000 users → ~5000 tweets in ~2 minutes under normal conditions.",
+        "Actual throughput depends on time window, X platform rate limits, and network conditions. For very large sets, split into multiple tasks."
+      ],
+      "payments": {
+        "createEndpoint": "https://xcatcher.top/mcp/payment/create",
+        "statusEndpoint": "https://xcatcher.top/mcp/payment/status/{payment_id}",
+        "options": [
+          {
+            "pay_currency": "eth",
+            "network": "Ethereum",
+            "label": "ETH transfer"
+          },
+          {
+            "pay_currency": "usdtsol",
+            "network": "Solana",
+            "label": "USDT (SPL) transfer"
+          }
+        ]
+      }
     }
   }
 }
