@@ -1,34 +1,76 @@
-````markdown
 # Xcatcher MCP (Remote)
 
-Xcatcher provides a Remote MCP server and a REST API for crawling X (Twitter) targets, polling task progress, and exporting results as authenticated downloads.
+Xcatcher is a **Remote MCP server** (Streamable HTTP) and a **REST API** for high-throughput crawling of **fresh / latest posts** across large sets of X (Twitter) usernames, with **authenticated XLSX export**.
 
 ## Endpoints
 
 - Base URL: https://xcatcher.top
 - Remote MCP (Streamable HTTP): https://xcatcher.top/mcp
 - REST API: https://xcatcher.top/api/v1
-- Health: https://xcatcher.top/mcp/health
 - Docs: https://xcatcher.top/docs/
+- Health: https://xcatcher.top/mcp/health
 
-Authentication (both MCP + REST):
+## Authentication
 
-- Authorization: Bearer xc_live_...
+All MCP and REST calls require:
 
-Important: Result files are not exposed as public direct links. Always download via authenticated endpoints using the same Bearer token.
+- `Authorization: Bearer xc_live_...`
 
-## What this MCP server is for (high-level)
+Important: Result files are not public direct links. Always download via authenticated endpoints using the same Bearer token.
 
-Remote MCP tools are intentionally focused on a small “agent-friendly” core:
+---
 
-- create_crawl_task: create a crawl task (side-effect: consumes points). Supports mode and optional idempotency_key.
-- get_task_status: return task status (poll until done).
-- get_result_download_url: return an absolute download_url for the XLSX result (Bearer still required).
-- cancel_task: cancel a queued task (subject to backend policy).
+## Modes: `normal` vs `deep`
 
-## Quickstart (Remote MCP)
+Choose the mode based on your goal:
 
-### Google ADK example
+### `normal` (recommended for monitoring / fresh feed)
+- Purpose: **fast “latest posts” snapshot** across many users
+- Best for: high-concurrency monitoring, alerting, pipelines that repeatedly fetch new posts
+- Typical: fastest turnaround and highest throughput
+
+### `deep`
+- Purpose: **deeper per-user collection / enrichment**
+- Best for: deeper historical/contextual pulls where latency is less critical
+- Typical: slower than normal and uses more resources
+
+Notes:
+- Exact cost and remaining balance are returned by the server (e.g., `cost_points`, `balance_after`) when you create a task.
+
+---
+
+## High-throughput / concurrency (what Xcatcher is optimized for)
+
+Xcatcher is designed for batch “fresh content” retrieval.
+
+Typical benchmark (Normal mode):
+- ~1000 X users → ~5000 tweets in ~2 minutes under normal conditions.
+
+Disclaimers:
+- Actual throughput depends on the time window, X platform rate limits, and network conditions.
+- For very large sets, split into multiple tasks (batching) and run concurrently if your quota allows.
+
+Recommended workflow:
+1) create task
+2) poll status
+3) download result
+
+---
+
+## Remote MCP tools (high level)
+
+Xcatcher exposes a small agent-friendly core:
+
+- `create_crawl_task`: create a crawl task (side effect: consumes points)
+- `get_task_status`: poll until done
+- `get_result_download_url`: get the authenticated XLSX download URL
+- `cancel_task`: cancel a queued task (if supported)
+
+Agents should rely on the tool schema (`tools/list`) for exact input fields and constraints.
+
+---
+
+## Quickstart (Google ADK → Remote MCP)
 
 ```python
 from google.adk.tools.mcp_tool import MCPToolset, StreamableHTTPConnectionParams
@@ -45,126 +87,102 @@ toolset = MCPToolset(
         "cancel_task",
     ],
 )
-````
+Recommended agent flow:
 
-### Recommended agent workflow
+create_crawl_task with mode and users (+ idempotency_key recommended)
 
-1. Call create_crawl_task with:
+poll get_task_status every 5–10 seconds
 
-   * mode: "normal" or "deep"
-   * users: array of X usernames (strings)
-   * idempotency_key: recommended for retry-safe execution
+get_result_download_url, then download using the same Bearer token
 
-2. Poll get_task_status every 5–10 seconds until completed.
-
-3. Call get_result_download_url and download with the same Bearer token.
-
-## Quickstart (REST API)
-
-Typical flow: obtain an API key, verify it, create a task, poll status, download the XLSX result.
-
-```bash
-# 0) Base + key placeholder
+Quickstart (REST API)
+bash
 BASE="https://xcatcher.top"
 API_KEY="xc_live_xxx"
 
-# 1) (Optional) Register → returns api_key
-curl -s -X POST "$BASE/api/v1/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"YOUR_USERNAME","password":"YOUR_PASSWORD"}'
-
-# 2) Login → issues a new api_key (old key may be revoked)
-curl -s -X POST "$BASE/api/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"YOUR_USERNAME","password":"YOUR_PASSWORD"}'
-
-# 3) Verify token / connectivity
+# Verify token / connectivity
 curl -s "$BASE/api/v1/me" \
   -H "Authorization: Bearer $API_KEY"
 
-# 4) Create task (side-effect: consumes points)
-#    mode: "normal" | "deep"
-#    users: array of X usernames (strings)
-#    idempotency_key: optional but recommended
+# Create task (side-effect: consumes points)
 curl -s -X POST "$BASE/api/v1/tasks" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"mode":"normal","users":["elonmusk","naval"],"idempotency_key":"YOUR_IDEMPOTENCY_KEY"}'
 
-# 5) Poll status until done
+# Poll status
 TASK_ID=10136
 curl -s "$BASE/api/v1/tasks/$TASK_ID" \
   -H "Authorization: Bearer $API_KEY"
 
-# 6) Download result (XLSX stream, not JSON)
+# Download XLSX (stream)
 curl -L -o result.xlsx \
   -H "Authorization: Bearer $API_KEY" \
   "$BASE/api/v1/tasks/$TASK_ID/download"
-```
+Polling guidance:
 
-Notes:
+Poll every 5–10 seconds under normal conditions.
 
-* idempotency_key is recommended for clients/agents that may retry requests.
-* On success, task creation may return fields like cost_points and balance_after.
+If you receive 429, back off and honor Retry-After.
 
-## Polling & idempotency guidance
+Idempotency:
 
-* Poll get_task_status every 5–10 seconds under normal conditions.
-* If you receive 429, back off and honor Retry-After (if present).
-* Always use idempotency_key for create calls to prevent double charges during retries.
+Always pass idempotency_key for create calls to prevent double charges during retries.
 
-## Error codes (agent branching)
+Payment / Top-up (two options)
+Create a top-up order:
 
-* 401 AUTH_MISSING / AUTH_INVALID:
-  Missing Bearer header, or token invalid/expired/blank/contaminated.
-* 409 RESULT_NOT_READY:
-  Task is not completed yet; keep polling.
-* 429 RATE_LIMITED:
-  Rate limit exceeded; honor Retry-After and back off.
-* 599 UPSTREAM_UNREACHABLE:
-  MCP server cannot reach internal API or timed out (check upstream health).
+POST /mcp/payment/create
+Then poll:
 
-Health check (public):
+GET /mcp/payment/status/<payment_id>
 
-```bash
-curl -s "https://xcatcher.top/mcp/health"
-```
-
-## Pricing / quota (Points)
-
-* Task creation consumes points (cost depends on mode and number of users).
-* Exact cost may be returned as cost_points and remaining balance as balance_after.
-* The server may enforce per-key rate limits and/or concurrency limits; violations return 429.
-
-## Top-up / payment (if enabled)
-
-```bash
+Option A: ETH transfer on Ethereum
+bash
 BASE="https://xcatcher.top"
 API_KEY="xc_live_xxx"
 
-# Create top-up order (returns on-chain payment details)
 curl -s -X POST "$BASE/mcp/payment/create" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"amount_usd":20,"pay_currency":"eth"}'
 
-# Check order status
-PAYMENT_ID="5851596631"
+PAYMENT_ID="YOUR_PAYMENT_ID"
 curl -s "$BASE/mcp/payment/status/$PAYMENT_ID" \
   -H "Authorization: Bearer $API_KEY"
-```
+Option B: USDT transfer on Solana (SPL)
+Use pay_currency: "usdtsol" (USDT on Solana). 
+NOWPayments
++1
 
-## Security & data handling
+bash
+BASE="https://xcatcher.top"
+API_KEY="xc_live_xxx"
 
-* Tasks are bound to the user derived from the Bearer token.
-* Download links are authenticated. Do not share your Bearer token.
-* Treat exported results as sensitive: they may contain third-party content and metadata.
+curl -s -X POST "$BASE/mcp/payment/create" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"amount_usd":20,"pay_currency":"usdtsol"}'
 
-## Support
+PAYMENT_ID="YOUR_PAYMENT_ID"
+curl -s "$BASE/mcp/payment/status/$PAYMENT_ID" \
+  -H "Authorization: Bearer $API_KEY"
+Payment safety notes:
 
-* Developer docs: [https://xcatcher.top/docs/](https://xcatcher.top/docs/)
-* Issues / requests: open an issue in this repository.
+Always send the exact amount returned by the API to the returned address.
 
-```
-::contentReference[oaicite:0]{index=0}
-```
+Ensure you send on the correct network (Ethereum vs Solana SPL). Sending on the wrong network may fail or require manual recovery.
+
+Error handling (agent branching)
+401 AUTH_MISSING / AUTH_INVALID: missing/invalid Bearer token
+
+409 RESULT_NOT_READY: keep polling
+
+429 RATE_LIMITED: back off, honor Retry-After
+
+5xx: transient errors; retry with backoff
+
+Support
+Docs: https://xcatcher.top/docs/
+
+Issues / requests: open an issue in this repository.
