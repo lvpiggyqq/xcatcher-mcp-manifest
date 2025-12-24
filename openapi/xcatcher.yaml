@@ -1,14 +1,31 @@
 openapi: 3.0.3
+
 info:
   title: Xcatcher Agent-first API (REST + MCP Proxy)
-  version: 1.0.0
+  version: 1.0.1
   description: |
     Xcatcher provides:
     - REST API under /api/v1 (points, x402 quote/topup, file download)
-    - Remote MCP server under /mcp/ (JSON-RPC over HTTP)
+    - Remote MCP server under /mcp (JSON-RPC over HTTP)
+
+    Notes for agent builders:
+    - Prefer mode=normal in examples (faster and cheaper).
+    - x402 quote returns temporary payTo addresses + required USDC amount.
+    - Minimum charge is 0.5 USDC (even if points imply a smaller USD amount).
+    - MCP endpoint requires header: Accept: application/json
 
 servers:
   - url: https://xcatcher.top
+
+tags:
+  - name: Points
+  - name: Payments
+  - name: Tasks
+  - name: MCP
+
+# Default: most endpoints require Bearer token
+security:
+  - BearerAuth: []
 
 components:
   securitySchemes:
@@ -16,31 +33,180 @@ components:
       type: http
       scheme: bearer
       bearerFormat: xc_live_...
+
+    # PAYMENT-SIGNATURE header is required for x402 topup
     PaymentSignature:
       type: apiKey
       in: header
       name: PAYMENT-SIGNATURE
 
+  schemas:
+    AnyObject:
+      type: object
+      additionalProperties: true
+
+    ApiError:
+      type: object
+      additionalProperties: true
+      properties:
+        success:
+          type: boolean
+        msg:
+          type: string
+
+    QuoteResponse:
+      type: object
+      additionalProperties: true
+      required: [success, quote_id, points, amount_usd, need_atomic, accepts, expires_in]
+      properties:
+        success:
+          type: boolean
+          example: true
+        quote_id:
+          type: string
+          example: q_9f2e0c0f7f5d4f7e9dbbb1c2a3d4e5f6
+        points:
+          type: integer
+          example: 100
+        amount_usd:
+          type: string
+          description: USD amount (stringified decimal). Minimum is 0.5.
+          example: "1.00"
+        need_atomic:
+          type: integer
+          description: USDC atomic amount (6 decimals). e.g., 1.00 USDC => 1000000
+          example: 1000000
+        accepts:
+          $ref: "#/components/schemas/X402Accepts"
+        expires_in:
+          type: integer
+          description: Quote TTL in seconds
+          example: 600
+
+    X402Accepts:
+      type: object
+      additionalProperties: true
+      required: [base, solana]
+      properties:
+        base:
+          $ref: "#/components/schemas/X402Requirement"
+        solana:
+          $ref: "#/components/schemas/X402Requirement"
+
+    X402Requirement:
+      type: object
+      additionalProperties: true
+      required: [scheme, network, maxAmountRequired, payTo, asset]
+      properties:
+        scheme:
+          type: string
+          example: exact
+        network:
+          type: string
+          description: Network identifier (x402)
+          example: eip155:8453
+        maxAmountRequired:
+          type: string
+          description: Atomic amount required (string)
+          example: "1000000"
+        payTo:
+          type: string
+          description: Recipient address (temporary / quote-specific)
+          example: "0xYourPayToAddress"
+        asset:
+          type: string
+          description: Asset contract/mint
+          example: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+        maxTimeoutSeconds:
+          type: integer
+          example: 10
+        extra:
+          type: object
+          additionalProperties: true
+
+    X402TopupRequest:
+      type: object
+      additionalProperties: false
+      required: [quote_id]
+      properties:
+        quote_id:
+          type: string
+          example: q_9f2e0c0f7f5d4f7e9dbbb1c2a3d4e5f6
+
+    # PAYMENT-SIGNATURE header value is base64(utf-8 JSON).
+    # The server validates it and uses it to verify payment.
+    PaymentSignaturePayloadBase:
+      type: object
+      additionalProperties: false
+      required: [x402Version, scheme, network, payload]
+      properties:
+        x402Version:
+          type: integer
+          example: 1
+        scheme:
+          type: string
+          example: exact
+        network:
+          type: string
+          description: x402 network id
+          example: eip155:8453
+        payload:
+          type: object
+          additionalProperties: true
+          description: |
+            - Base: {"txHash":"0x..."}
+            - Solana: {"signature":"..."}
+          example:
+            txHash: "0x0123456789abcdef..."
+
 paths:
+  /mcp/health:
+    get:
+      tags: [MCP]
+      summary: Health check for MCP server
+      description: Public health endpoint (no auth required).
+      security: []
+      responses:
+        "200":
+          description: OK (plain text)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+
   /api/v1/me:
     get:
+      tags: [Points]
       summary: Get current user info (points balance)
-      security:
-        - BearerAuth: []
+      description: Requires Authorization: Bearer xc_live_...
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/AnyObject"
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
   /api/v1/x402/quote:
     get:
-      summary: Get x402 quote for purchasing points
+      tags: [Payments]
+      summary: Create an x402 quote for purchasing points
+      description: |
+        Returns a short-lived quote_id and payment requirements for Base/Solana USDC.
+        This endpoint is PUBLIC in the current server implementation (no Bearer token required).
+
+        Important:
+        - payTo addresses are returned by the quote and may be temporary/quote-specific.
+        - Minimum charge is 0.5 USDC (even if points imply less than $0.5).
+      # Override the global BearerAuth requirement
+      security: []
       parameters:
         - name: points
           in: query
@@ -48,61 +214,104 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 200000
+          description: Number of points to purchase.
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/QuoteResponse"
+        "400":
+          description: Bad Request (invalid points)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Too Many Requests (IP blocked due to too many failed payments)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
   /api/v1/x402/topup:
     post:
+      tags: [Payments]
       summary: Top up points for the current Bearer key (x402)
+      description: |
+        Credits points to the SAME Bearer key used in Authorization.
+
+        Requirements:
+        - Authorization: Bearer xc_live_...
+        - PAYMENT-SIGNATURE header:
+          base64(utf-8 JSON) payment proof.
+
+        PAYMENT-SIGNATURE JSON examples (before base64):
+        - Base:
+          {"x402Version":1,"scheme":"exact","network":"eip155:8453","payload":{"txHash":"0x..."}}
+        - Solana:
+          {"x402Version":1,"scheme":"exact","network":"solana:mainnet","payload":{"signature":"..."}}
       security:
         - BearerAuth: []
-      parameters:
-        - name: PAYMENT-SIGNATURE
-          in: header
-          required: true
-          schema:
-            type: string
-          description: base64(UTF-8 JSON) payment proof
+          PaymentSignature: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [quote_id]
-              properties:
-                quote_id:
-                  type: string
+              $ref: "#/components/schemas/X402TopupRequest"
       responses:
         "200":
-          description: OK
+          description: OK (shape depends on upstream; returns success/result fields)
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/AnyObject"
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "402":
-          description: Payment Required
+          description: Payment Required (verification failed or quote expired)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: Too Many Requests (rate limited)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
   /api/v1/tasks/{task_id}/download:
     get:
+      tags: [Tasks]
       summary: Download task result file (xlsx)
-      security:
-        - BearerAuth: []
+      description: Requires Authorization: Bearer xc_live_...
       parameters:
         - name: task_id
           in: path
           required: true
           schema:
             type: integer
+            minimum: 1
       responses:
         "200":
           description: File stream (xlsx)
@@ -113,31 +322,54 @@ paths:
                 format: binary
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "404":
           description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
   /mcp/:
     post:
-      summary: MCP JSON-RPC proxy (tools/list, tools/call)
+      tags: [MCP]
+      summary: Remote MCP JSON-RPC endpoint (tools/list, tools/call)
       description: |
         This is the Remote MCP entrypoint (JSON-RPC over HTTP).
         MUST send header: Accept: application/json
+
         Typical body:
           {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
-      security:
-        - BearerAuth: []
+
+        For tools/call:
+          {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"create_crawl_task","arguments":{"mode":"normal","users":["elonmusk"],"idempotency_key":"k1"}}}
+      parameters:
+        - name: Accept
+          in: header
+          required: true
+          schema:
+            type: string
+            example: application/json
+          description: MCP server expects JSON responses; set Accept to application/json.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: "#/components/schemas/AnyObject"
       responses:
         "200":
           description: JSON-RPC response
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: "#/components/schemas/AnyObject"
+        "401":
+          description: Unauthorized (Missing/Invalid Bearer token)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnyObject"
