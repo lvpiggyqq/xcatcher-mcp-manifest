@@ -1,8 +1,9 @@
-````markdown
 # Xcatcher MCP (Remote)
 
-Xcatcher is an agent-first Remote MCP server (Streamable HTTP) plus a REST API for high-throughput crawling of **fresh/latest posts** across large sets of X (Twitter) usernames. Results are provided as an authenticated **XLSX** download.
-If CSV is needed, convert the downloaded XLSX to CSV client-side.
+Xcatcher is an agent-first **Remote MCP** server (Streamable HTTP) plus a REST API for high-throughput crawling of **fresh/latest posts** across large sets of X (Twitter) usernames.  
+It supports **x402** pay-as-you-go top-ups using **USDC** on **Base** and **Solana**, and ships an **OpenAPI** spec for direct import by agent builders.  
+It includes copy-paste end-to-end examples for **Google ADK** and **Gemini** agents, plus curl scripts for MCP + x402 flows.  
+Results are returned as an authenticated **XLSX** download (convert to CSV client-side if needed).
 
 ## Endpoints
 
@@ -99,13 +100,9 @@ curl -sS -X POST "$BASE/mcp/" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | jq .
-````
-
----
-
-## Quickstart (Google ADK → Remote MCP)
-
-```python
+Quickstart (Google ADK → Remote MCP)
+python
+复制代码
 import os
 
 # ADK import compat
@@ -131,22 +128,21 @@ toolset = McpToolset(
         "cancel_task",
     ],
 )
-```
-
 Recommended agent flow:
 
-1. `create_crawl_task` with `mode` and `users` (+ `idempotency_key` recommended)
-2. poll `get_task_status` every ~5 seconds
-3. `get_result_download_url`, then download using the same Bearer token
-4. if 402 (`PAYMENT_REQUIRED`): perform x402 topup then retry create with the same `idempotency_key`
+create_crawl_task with mode and users (+ idempotency_key recommended)
 
----
+poll get_task_status every ~5 seconds
 
-## Quickstart (REST API)
+get_result_download_url, then download using the same Bearer token
 
+if 402 (PAYMENT_REQUIRED): perform x402 topup then retry create with the same idempotency_key
+
+Quickstart (REST API)
 Workflow: create task → poll → download.
 
-```bash
+bash
+复制代码
 BASE="https://xcatcher.top"
 
 # 1) Register -> returns api_key (xc_live_...)
@@ -169,11 +165,10 @@ curl -s -X POST "$BASE/api/v1/tasks" \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"mode":"normal","users":["elonmusk","naval"],"idempotency_key":"rest-req-001"}'
-```
-
 Poll + download:
 
-```bash
+bash
+复制代码
 BASE="https://xcatcher.top"
 API_KEY="xc_live_xxx"
 TASK_ID=10136
@@ -185,64 +180,59 @@ curl -s "$BASE/api/v1/tasks/$TASK_ID" -H "Authorization: Bearer $API_KEY"
 curl -L -o "task_${TASK_ID}.xlsx" \
   -H "Authorization: Bearer $API_KEY" \
   "$BASE/api/v1/tasks/$TASK_ID/download"
-```
-
 Polling guidance:
 
-* Poll every 5–10 seconds under normal conditions.
-* If you receive 429, back off and honor `Retry-After`.
+Poll every 5–10 seconds under normal conditions.
+
+If you receive 429, back off and honor Retry-After.
 
 Idempotency:
 
-* Always pass `idempotency_key` for create calls to prevent double charges during retries.
+Always pass idempotency_key for create calls to prevent double charges during retries.
 
----
+x402 Top-up (Base / Solana)
+When you create a task with insufficient points, you may get HTTP 402 with a PAYMENT-REQUIRED header (base64 JSON) and a body containing a quote (quote_id, payTo, maxAmountRequired, etc.). Use x402:
 
-## x402 Top-up (Base / Solana)
+Two steps: GET quote → pay on-chain → POST topup.
 
-When you create a task with insufficient points, you may get HTTP **402** with a `PAYMENT-REQUIRED` header (base64 JSON) and a body containing a quote (`quote_id`, `payTo`, `maxAmountRequired`, etc.). Use x402:
+PAYMENT-SIGNATURE format
+Topup proof is sent as HTTP header: PAYMENT-SIGNATURE
 
-**Two steps:** GET quote → pay on-chain → POST topup.
+Value = base64(UTF-8 JSON):
 
-### PAYMENT-SIGNATURE format
+Base proof uses txHash
 
-Topup proof is sent as HTTP header: `PAYMENT-SIGNATURE`
-
-Value = `base64(UTF-8 JSON)`:
-
-* Base proof uses `txHash`
-* Solana proof uses `signature`
+Solana proof uses signature
 
 Base example (txHash-only):
 
-```json
+json
+复制代码
 {
   "x402Version": 1,
   "scheme": "exact",
   "network": "eip155:8453",
   "payload": { "txHash": "0x...base_transaction_hash..." }
 }
-```
-
 Solana example (tx signature):
 
-```json
+json
+复制代码
 {
   "x402Version": 1,
   "scheme": "exact",
   "network": "solana:mainnet",
   "payload": { "signature": "5v...solana_tx_signature...pQ" }
 }
-```
-
 Encoding note:
 
-* base64 must be computed on the raw JSON UTF-8 bytes.
-* Do not double-encode. Do not wrap in extra quotes.
+base64 must be computed on the raw JSON UTF-8 bytes.
 
-### Base: quote → pay USDC → topup → /me
+Do not double-encode. Do not wrap in extra quotes.
 
-```bash
+Base: quote → pay USDC → topup → /me
+bash
+复制代码
 BASE="https://xcatcher.top"
 API_KEY="xc_live_xxx"
 POINTS=100
@@ -271,13 +261,11 @@ curl -s -X POST "$BASE/api/v1/x402/topup" \
 
 # 5) Verify points
 curl -s "$BASE/api/v1/me" -H "Authorization: Bearer $API_KEY"
-```
+macOS note: if base64 -w 0 fails, use base64 | tr -d '\n' to ensure single-line output.
 
-macOS note: if `base64 -w 0` fails, use `base64 | tr -d '\n'` to ensure single-line output.
-
-### Solana: quote → SPL transfer → topup → /me
-
-```bash
+Solana: quote → SPL transfer → topup → /me
+bash
+复制代码
 BASE="https://xcatcher.top"
 API_KEY="xc_live_xxx"
 POINTS=100
@@ -304,44 +292,43 @@ curl -s -X POST "$BASE/api/v1/x402/topup" \
 
 # 5) Verify points
 curl -s "$BASE/api/v1/me" -H "Authorization: Bearer $API_KEY"
-```
-
 After topup:
 
-* Retry `POST /api/v1/tasks` using the **same `idempotency_key`** that triggered 402.
+Retry POST /api/v1/tasks using the same idempotency_key that triggered 402.
 
----
+REST Endpoints Summary
+POST /api/v1/auth/register — create account + issue api_key
 
-## REST Endpoints Summary
+POST /api/v1/auth/login — login + issue api_key (may revoke older keys)
 
-* `POST /api/v1/auth/register` — create account + issue `api_key`
-* `POST /api/v1/auth/login` — login + issue `api_key` (may revoke older keys)
-* `GET /api/v1/me` — check current user + points for Bearer key
-* `POST /api/v1/tasks` — create a task (consumes points; returns 402 if low)
-* `GET /api/v1/tasks/<id>` — read task status
-* `GET /api/v1/tasks/<id>/download` — download result file (requires Bearer)
-* `POST /api/v1/tasks/<id>/cancel` — cancel queued task (policy may refund)
-* `GET /api/v1/x402/quote?points=<n>` — get x402 quote by points
-* `POST /api/v1/x402/topup` — top up current Bearer key using `PAYMENT-SIGNATURE`
+GET /api/v1/me — check current user + points for Bearer key
 
----
+POST /api/v1/tasks — create a task (consumes points; returns 402 if low)
 
-## Error handling (agent branching)
+GET /api/v1/tasks/<id> — read task status
 
-* `401 AUTH_MISSING / AUTH_INVALID`: missing/invalid Bearer token
-* `402 PAYMENT_REQUIRED`: pay + topup then retry (same `idempotency_key`)
-* `409 RESULT_NOT_READY`: keep polling
-* `429 RATE_LIMITED`: back off, honor `Retry-After`
-* `599 UPSTREAM_UNREACHABLE`: internal dependency unreachable
-* `5xx`: transient errors; retry with exponential backoff
+GET /api/v1/tasks/<id>/download — download result file (requires Bearer)
 
----
+POST /api/v1/tasks/<id>/cancel — cancel queued task (policy may refund)
 
-## Support
+GET /api/v1/x402/quote?points=<n> — get x402 quote by points
 
-* Docs: `https://xcatcher.top/docs/`
-* Issues / requests: open an issue in this repository.
+POST /api/v1/x402/topup — top up current Bearer key using PAYMENT-SIGNATURE
 
-````
+Error handling (agent branching)
+401 AUTH_MISSING / AUTH_INVALID: missing/invalid Bearer token
 
- 
+402 PAYMENT_REQUIRED: pay + topup then retry (same idempotency_key)
+
+409 RESULT_NOT_READY: keep polling
+
+429 RATE_LIMITED: back off, honor Retry-After
+
+599 UPSTREAM_UNREACHABLE: internal dependency unreachable
+
+5xx: transient errors; retry with exponential backoff
+
+Support
+Docs: https://xcatcher.top/docs/
+
+Issues / requests: open an issue in this repository.
