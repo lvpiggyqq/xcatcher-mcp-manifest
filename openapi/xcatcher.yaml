@@ -1,0 +1,143 @@
+openapi: 3.0.3
+info:
+  title: Xcatcher Agent-first API (REST + MCP Proxy)
+  version: 1.0.0
+  description: |
+    Xcatcher provides:
+    - REST API under /api/v1 (points, x402 quote/topup, file download)
+    - Remote MCP server under /mcp/ (JSON-RPC over HTTP)
+
+servers:
+  - url: https://xcatcher.top
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: xc_live_...
+    PaymentSignature:
+      type: apiKey
+      in: header
+      name: PAYMENT-SIGNATURE
+
+paths:
+  /api/v1/me:
+    get:
+      summary: Get current user info (points balance)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Unauthorized
+
+  /api/v1/x402/quote:
+    get:
+      summary: Get x402 quote for purchasing points
+      parameters:
+        - name: points
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/v1/x402/topup:
+    post:
+      summary: Top up points for the current Bearer key (x402)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: PAYMENT-SIGNATURE
+          in: header
+          required: true
+          schema:
+            type: string
+          description: base64(UTF-8 JSON) payment proof
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quote_id]
+              properties:
+                quote_id:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Unauthorized
+        "402":
+          description: Payment Required
+
+  /api/v1/tasks/{task_id}/download:
+    get:
+      summary: Download task result file (xlsx)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File stream (xlsx)
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not Found
+
+  /mcp/:
+    post:
+      summary: MCP JSON-RPC proxy (tools/list, tools/call)
+      description: |
+        This is the Remote MCP entrypoint (JSON-RPC over HTTP).
+        MUST send header: Accept: application/json
+        Typical body:
+          {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: JSON-RPC response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
