@@ -4,7 +4,7 @@ This folder shows how to connect **Google ADK** to a **Remote MCP server (Stream
 
 - `tools/list`
 - `create_crawl_task`
-- If points are insufficient: `PAYMENT_REQUIRED` (402) -> decode quote -> `x402_topup`
+- If points are insufficient: `PAYMENT_REQUIRED` -> decode quote -> `x402_topup`
 - Retry `create_crawl_task` with the **same** `idempotency_key`
 - Poll `get_task_status` until `has_result=true`
 - `get_result_download_url`
@@ -12,6 +12,13 @@ This folder shows how to connect **Google ADK** to a **Remote MCP server (Stream
 
 Docs:
 - https://xcatcher.top/docs
+
+## Important notes
+
+- **payTo is quote-specific and returned dynamically**, so txHash/signature **cannot** be prepared in advance.
+  The correct sequence is: *get quote -> pay to payTo -> paste txHash/signature -> topup*.
+- **Minimum top-up is 0.50 USDC** (Base/Solana). Send at least 0.50 USDC even if the quoted amount is lower.
+- Examples default to **mode=normal** because it's faster.
 
 ## Setup
 
@@ -24,36 +31,23 @@ Environment variables
 Required:
 
 bash
-复制代码
 export XCAT_BASE="https://xcatcher.top"
 export XCAT_API_KEY="xc_live_xxx"
 Optional:
 
 bash
-复制代码
-export XCAT_MODE="deep"                         # normal|deep
-export XCAT_USERS="elonmusk,naval,a16z"         # comma-separated
-export XCAT_IDEMPOTENCY_KEY="fixed-idem-key"    # stable for retries
+export XCAT_MODE="normal"                      # normal|deep (default: normal)
+export XCAT_USERS="elonmusk,naval,a16z"        # comma-separated
+export XCAT_IDEMPOTENCY_KEY="fixed-idem-key"   # stable for retries
 
-export X402_NETWORK="base"                      # base|solana (default: base)
-export X402_TXHASH="0x..."                      # if base
-export X402_SIGNATURE="..."                     # if solana
+export X402_NETWORK="base"                     # base|solana (default: base)
+export X402_TXHASH="0x..."                     # provide AFTER you pay (Base)
+export X402_SIGNATURE="..."                    # provide AFTER you pay (Solana)
 Run
 bash
-复制代码
 python minimal_list_tools.py
 python adk_mcp_e2e.py
-Notes:
-
+Notes
 If you do not set X402_TXHASH / X402_SIGNATURE, the script will prompt you.
 
-The code includes compatibility fallbacks for different ADK versions.
-
-shell
- 
-
-## `google-adk/requirements.txt`
-
-```txt
-httpx>=0.27.0
-google-adk
+The code includes compatibility fallbacks for different ADK versions

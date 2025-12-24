@@ -11,7 +11,9 @@ fi
 BASE="${BASE:-https://xcatcher.top}"
 API_KEY="${API_KEY:-xc_live_xxx}"
 
-MODE="${MODE:-deep}"
+# Prefer normal mode in docs/examples because it's faster.
+MODE="${MODE:-normal}"   # normal|deep
+
 USERS_JSON="${USERS_JSON:-'["elonmusk"]'}"
 IDEM="${IDEM:-curl402-$(date +%s)}"
 
@@ -26,6 +28,9 @@ F_TOPUP="$TMPDIR/x402_topup.json"
 F_CREATE_2="$TMPDIR/mcp_create_2.json"
 F_STATUS="$TMPDIR/mcp_status.json"
 F_DL="$TMPDIR/mcp_download.json"
+
+# Policy note (documented): minimum top-up is 0.50 USDC.
+MIN_TOPUP_USDC="${MIN_TOPUP_USDC:-0.50}"
 
 need_cmd(){ command -v "$1" >/dev/null 2>&1 || { echo "Missing command: $1"; exit 1; }; }
 need_cmd curl; need_cmd jq; need_cmd base64
@@ -58,6 +63,15 @@ mcp_post() {
 
 # Important: compatible with FastMCP structuredContent wrapper
 tool_result_filter='.result.structuredContent.result // .result'
+
+echo "== 0) Notes =="
+echo " - Default MODE: $MODE (faster for copy-run)"
+echo " - x402 payTo/amount are quote-specific and returned dynamically."
+echo "   Therefore txHash/signature cannot be prepared in advance."
+echo " - Minimum top-up: ${MIN_TOPUP_USDC} USDC (send at least this amount)"
+echo " - If you need to re-run after paying, reuse the same IDEM for idempotency."
+echo "   Current IDEM: $IDEM"
+echo
 
 echo "== 1) Health (/mcp/health) =="
 curl -sS "$BASE/mcp/health" && echo
@@ -111,18 +125,28 @@ QUOTE_ID="$(jq -r '.quote_id // empty' "$F_QUOTE")"
 [[ -n "$QUOTE_ID" ]] || { echo "ERROR: quote decode failed or missing quote_id"; head -c 400 "$F_QUOTE"; echo; exit 1; }
 
 # Print only key fields for readability
-jq -r '{
+echo "Quote summary (minimum_topup_usdc=${MIN_TOPUP_USDC}):"
+jq -r --arg min "$MIN_TOPUP_USDC" '{
   quote_id,
   expires_in,
   task_cost_points,
   balance_points,
-  base_payTo:.accepts.base.payTo,
-  base_amount:.accepts.base.maxAmountRequired,
-  sol_payTo:.accepts.solana.payTo,
-  sol_amount:.accepts.solana.maxAmountRequired
+  minimum_topup_usdc:$min,
+  base_payTo:(.accepts.base.payTo // null),
+  base_amount:(.accepts.base.maxAmountRequired // null),
+  sol_payTo:(.accepts.solana.payTo // null),
+  sol_amount:(.accepts.solana.maxAmountRequired // null)
 }' "$F_QUOTE" | jq .
 
+echo
 echo "== 5) Provide payment proof (Base txHash or Solana signature) =="
+echo "Action required:"
+echo "  1) Choose network (base/solana)"
+echo "  2) Send USDC to the payTo address shown above"
+echo "  3) Provide txHash (Base) or signature (Solana)"
+echo "Minimum top-up: ${MIN_TOPUP_USDC} USDC"
+echo
+
 if [[ -z "$NETWORK" ]]; then
   if [[ -t 0 ]]; then
     read -r -p "Select network (base/solana, default base): " NETWORK || true
@@ -136,18 +160,52 @@ fi
 PAYMENT_SIGNATURE_B64=""
 case "$NETWORK" in
   base)
-    if [[ -z "$BASE_TXHASH" && -t 0 ]]; then
-      read -r -p "Paste Base USDC transfer txHash (0x...): " BASE_TXHASH
+    PAYTO="$(jq -r '.accepts.base.payTo // empty' "$F_QUOTE")"
+    AMT="$(jq -r '.accepts.base.maxAmountRequired // empty' "$F_QUOTE")"
+    echo "Base payment details:"
+    echo "  payTo : $PAYTO"
+    echo "  amount: $AMT (atomic; USDC has 6 decimals)"
+    echo "  minimum_topup_usdc: ${MIN_TOPUP_USDC}"
+    echo
+
+    if [[ -z "$BASE_TXHASH" ]]; then
+      if [[ -t 0 ]]; then
+        echo "Send USDC on Base to payTo, then paste the txHash."
+        read -r -p "Paste Base USDC transfer txHash (0x...): " BASE_TXHASH
+      else
+        echo "Non-interactive run detected."
+        echo "After you pay, re-run with:"
+        echo "  NETWORK=base BASE_TXHASH=0x... IDEM=$IDEM bash $0"
+        exit 2
+      fi
     fi
+
     [[ -n "$BASE_TXHASH" ]] || { echo "ERROR: missing BASE_TXHASH"; exit 2; }
     PAYLOAD="$(jq -nc --arg tx "$BASE_TXHASH" \
       '{"x402Version":1,"scheme":"exact","network":"eip155:8453","payload":{"txHash":$tx}}')"
     PAYMENT_SIGNATURE_B64="$(printf '%s' "$PAYLOAD" | b64_encode)"
     ;;
   solana)
-    if [[ -z "$SOL_SIGNATURE" && -t 0 ]]; then
-      read -r -p "Paste Solana USDC transfer signature: " SOL_SIGNATURE
+    PAYTO="$(jq -r '.accepts.solana.payTo // empty' "$F_QUOTE")"
+    AMT="$(jq -r '.accepts.solana.maxAmountRequired // empty' "$F_QUOTE")"
+    echo "Solana payment details:"
+    echo "  payTo : $PAYTO"
+    echo "  amount: $AMT (atomic)"
+    echo "  minimum_topup_usdc: ${MIN_TOPUP_USDC}"
+    echo
+
+    if [[ -z "$SOL_SIGNATURE" ]]; then
+      if [[ -t 0 ]]; then
+        echo "Send USDC on Solana to payTo, then paste the signature."
+        read -r -p "Paste Solana USDC transfer signature: " SOL_SIGNATURE
+      else
+        echo "Non-interactive run detected."
+        echo "After you pay, re-run with:"
+        echo "  NETWORK=solana SOL_SIGNATURE=... IDEM=$IDEM bash $0"
+        exit 2
+      fi
     fi
+
     [[ -n "$SOL_SIGNATURE" ]] || { echo "ERROR: missing SOL_SIGNATURE"; exit 2; }
     PAYLOAD="$(jq -nc --arg sig "$SOL_SIGNATURE" \
       '{"x402Version":1,"scheme":"exact","network":"solana:mainnet","payload":{"signature":$sig}}')"

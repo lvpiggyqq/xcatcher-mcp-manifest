@@ -3,21 +3,25 @@
 """
 End-to-end ADK example for Xcatcher Remote MCP (Streamable HTTP):
 
-tools/list -> create_crawl_task -> (402 PAYMENT_REQUIRED) -> x402_topup -> retry create
+tools/list -> create_crawl_task -> (PAYMENT_REQUIRED) -> x402_topup -> retry create
 -> poll get_task_status -> get_result_download_url -> download xlsx
 
-Env:
+Required Env:
   export XCAT_BASE="https://xcatcher.top"
   export XCAT_API_KEY="xc_live_...."
 
 Optional:
-  export XCAT_MODE="deep"                         # normal|deep
-  export XCAT_USERS="elonmusk,naval,..."          # comma-separated
-  export XCAT_IDEMPOTENCY_KEY="your-idem-key"     # stable for retries
+  export XCAT_MODE="normal"                      # normal|deep (default: normal, faster)
+  export XCAT_USERS="elonmusk,naval,..."         # comma-separated
+  export XCAT_IDEMPOTENCY_KEY="your-idem-key"    # stable for retries
 
-  export X402_NETWORK="base"                      # base|solana (default: base)
-  export X402_TXHASH="0x..."                      # if base
-  export X402_SIGNATURE="..."                     # if solana
+  export X402_NETWORK="base"                     # base|solana (default: base)
+  export X402_TXHASH="0x..."                     # provide AFTER you pay (Base)
+  export X402_SIGNATURE="..."                    # provide AFTER you pay (Solana)
+
+Notes:
+  - payTo is quote-specific and returned dynamically; txHash/signature cannot be prepared in advance.
+  - Minimum top-up is 0.50 USDC (Base/Solana). Send at least 0.50 USDC.
 
 Output:
   Downloads result to ./task_<task_id>.xlsx
@@ -41,6 +45,9 @@ try:
 except Exception:
     from google.adk.tools.mcp_tool import MCPToolset as McpToolset  # type: ignore
     from google.adk.tools.mcp_tool import StreamableHTTPConnectionParams  # type: ignore
+
+
+MIN_TOPUP_USDC = "0.50"
 
 
 def _env(name: str, default: str = "") -> str:
@@ -69,13 +76,11 @@ def _to_plain(obj: Any) -> Any:
         return None
     if isinstance(obj, (str, int, float, bool, list, dict)):
         return obj
-    # pydantic v2
     if hasattr(obj, "model_dump"):
         try:
             return obj.model_dump()
         except Exception:
             pass
-    # pydantic v1
     if hasattr(obj, "dict"):
         try:
             return obj.dict()
@@ -101,7 +106,6 @@ def _extract_tool_output(payload: Any) -> Any:
     payload = _to_plain(payload)
 
     if isinstance(payload, dict):
-        # already plain
         if "ok" in payload and ("error" in payload or "task_id" in payload or "download_url" in payload):
             return payload
 
@@ -136,12 +140,6 @@ def _extract_tool_output(payload: Any) -> Any:
 
 
 async def _get_tools_compat(toolset: Any) -> List[Any]:
-    """
-    ADK versions differ:
-      - toolset.get_tools_async()
-      - toolset.get_tools()
-      - toolset.tools (property)
-    """
     if hasattr(toolset, "get_tools_async"):
         return await _maybe_await(toolset.get_tools_async())
     if hasattr(toolset, "get_tools"):
@@ -152,11 +150,6 @@ async def _get_tools_compat(toolset: Any) -> List[Any]:
 
 
 async def _close_toolset_compat(toolset: Any) -> None:
-    """
-    Close method differs:
-      - aclose()
-      - close() (sync or async)
-    """
     for m in ("aclose", "close"):
         if hasattr(toolset, m):
             try:
@@ -167,10 +160,6 @@ async def _close_toolset_compat(toolset: Any) -> None:
 
 
 async def _call_mcp_tool(tool_obj: Any, args: Dict[str, Any]) -> Any:
-    """
-    ADK MCP tools commonly expose run_async(args=..., tool_context=...).
-    Provide compatibility fallbacks.
-    """
     if hasattr(tool_obj, "run_async"):
         fn = tool_obj.run_async
         try:
@@ -223,10 +212,7 @@ async def _rest_get_me(base: str, api_key: str) -> Dict[str, Any]:
 
 
 async def _download_file(url: str, api_key: str, out_path: str) -> None:
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/json",
-    }
+    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
     async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
         async with client.stream("GET", url, headers=headers) as r:
             r.raise_for_status()
@@ -247,14 +233,14 @@ async def main() -> int:
         print("ERROR: missing env XCAT_API_KEY", file=sys.stderr)
         return 2
 
-    # MCP JSON-RPC over HTTP headers
     mcp_headers = {
         "Authorization": f"Bearer {api_key}",
         "Accept": "application/json",
         "Content-Type": "application/json",
     }
 
-    mode = (_env("XCAT_MODE", "deep").lower() or "deep")
+    # Prefer normal mode (faster) for examples
+    mode = (_env("XCAT_MODE", "normal").lower() or "normal")
     users_env = _env("XCAT_USERS", "")
     users = [u.strip().lstrip("@") for u in users_env.split(",") if u.strip()] if users_env else _default_users()
 
@@ -265,10 +251,7 @@ async def main() -> int:
     x402_sig = _env("X402_SIGNATURE", "")
 
     toolset = McpToolset(
-        connection_params=StreamableHTTPConnectionParams(
-            url=f"{base}/mcp",
-            headers=mcp_headers,
-        ),
+        connection_params=StreamableHTTPConnectionParams(url=f"{base}/mcp", headers=mcp_headers),
         tool_filter=[
             "create_crawl_task",
             "x402_topup",
@@ -279,7 +262,12 @@ async def main() -> int:
     )
 
     try:
-        print("\n== 1) tools/list (via ADK McpToolset) ==")
+        print("\n== 0) Notes ==")
+        print(f" - Default mode: {mode} (faster for examples)")
+        print(" - payTo is quote-specific and returned dynamically; txHash/signature is available only AFTER you pay.")
+        print(f" - Minimum top-up: {MIN_TOPUP_USDC} USDC\n")
+
+        print("== 1) tools/list (via ADK McpToolset) ==")
         tools = await _get_tools_compat(toolset)
 
         tool_map: Dict[str, Any] = {}
@@ -311,7 +299,7 @@ async def main() -> int:
         me = await _rest_get_me(base, api_key)
         print(json.dumps(me, ensure_ascii=False, indent=2))
 
-        print("\n== 3) call create_crawl_task (expect 402 when points insufficient) ==")
+        print("\n== 3) call create_crawl_task (expect PAYMENT_REQUIRED when points insufficient) ==")
         create_args = {"users": users, "mode": mode, "idempotency_key": idem_key}
         raw1 = await _call_mcp_tool(t_create, create_args)
         out1 = _extract_tool_output(raw1)
@@ -319,7 +307,6 @@ async def main() -> int:
 
         task_id = None
 
-        # 402 branch
         if (
             isinstance(out1, dict)
             and (out1.get("ok") is False)
@@ -337,10 +324,24 @@ async def main() -> int:
                     return 3
                 pr_obj = _decode_payment_required_b64(pr_b64)
 
-            print(json.dumps(pr_obj, ensure_ascii=False, indent=2))
             quote_id, accepts = _pick_quote_from_payment_required(pr_obj)
 
+            # Print a short summary to guide the payment step
+            summary = {
+                "quote_id": quote_id,
+                "expires_in": pr_obj.get("expires_in"),
+                "task_cost_points": pr_obj.get("task_cost_points"),
+                "balance_points": pr_obj.get("balance_points"),
+                "minimum_topup_usdc": MIN_TOPUP_USDC,
+                "base": accepts.get("base"),
+                "solana": accepts.get("solana"),
+            }
+            print(json.dumps(summary, ensure_ascii=False, indent=2))
+
             print("\n== 5) choose network + build payment_signature_b64 ==")
+            print("Action required: pay USDC to the returned payTo address, then provide txHash/signature.")
+            print(f"Minimum top-up: {MIN_TOPUP_USDC} USDC")
+
             if x402_network not in ("base", "solana"):
                 print("ERROR: X402_NETWORK must be base|solana", file=sys.stderr)
                 return 4
@@ -366,7 +367,6 @@ async def main() -> int:
 
             print(f"\nquote_id={quote_id}")
             print(f"payment_signature_b64={payment_sig_b64}")
-            print("accepts =", json.dumps(accepts, ensure_ascii=False, indent=2))
 
             print("\n== 6) call x402_topup (via MCP tool) ==")
             raw2 = await _call_mcp_tool(t_topup, {"quote_id": quote_id, "payment_signature_b64": payment_sig_b64})
@@ -388,7 +388,6 @@ async def main() -> int:
             task_id = out3.get("task_id")
 
         else:
-            # direct success
             if not (isinstance(out1, dict) and out1.get("ok") is True):
                 print("ERROR: create_crawl_task failed (not PAYMENT_REQUIRED)", file=sys.stderr)
                 return 7
@@ -399,7 +398,7 @@ async def main() -> int:
             return 8
 
         print(f"\n== 8) poll get_task_status until has_result=true (task_id={task_id}) ==")
-        deadline = time.time() + 900  # 15 minutes
+        deadline = time.time() + 900
         last = None
         while time.time() < deadline:
             raw_s = await _call_mcp_tool(t_status, {"task_id": int(task_id)})

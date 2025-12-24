@@ -18,8 +18,6 @@ XCAT_BASE = _env("XCAT_BASE", "https://xcatcher.top").rstrip("/")
 XCAT_API_KEY = _env("XCAT_API_KEY", "")
 
 if not XCAT_API_KEY:
-    # ADK will still load the agent, but tool calls will fail without auth.
-    # This message helps humans notice the missing env.
     print("WARNING: missing XCAT_API_KEY env var (xc_live_...). Tool calls will fail.")
 
 toolset = McpToolset(
@@ -44,11 +42,19 @@ agent = Agent(
     model="gemini-2.5-flash",
     instruction=(
         "You are an agent that uses Xcatcher Remote MCP to create crawl tasks for X (Twitter) users.\n"
+        "\n"
+        "Defaults:\n"
+        "- Prefer mode=normal because it is faster.\n"
+        "\n"
         "Rules:\n"
         "- MCP calls MUST include Accept: application/json (already set).\n"
         "- create_crawl_task consumes points (side effect). Always include a stable idempotency_key.\n"
-        "- If you receive ok=false with error.code=PAYMENT_REQUIRED, ask the user to pay and provide txHash/signature, "
-        "then call x402_topup, then retry create_crawl_task with the SAME idempotency_key.\n"
+        "- If you receive ok=false with error.code=PAYMENT_REQUIRED:\n"
+        "  1) Explain that payTo/amount are returned dynamically by the quote, so txHash/signature cannot be known in advance.\n"
+        "  2) Ask the user to pay USDC to the returned payTo address.\n"
+        "  3) Minimum top-up is 0.50 USDC (Base/Solana). Ask the user to send at least 0.50 USDC.\n"
+        "  4) After payment, ask for Base txHash or Solana signature.\n"
+        "  5) Call x402_topup, then retry create_crawl_task with the SAME idempotency_key.\n"
         "- Poll get_task_status until has_result=true.\n"
         "- get_result_download_url returns a URL; downloading still requires the same Bearer token.\n"
     ),
