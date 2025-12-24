@@ -4,7 +4,7 @@ Remote MCP / x402 / USDC / Base / Solana / OpenAPI / Google ADK / Gemini
 Xcatcher is an agent-first **Remote MCP** server (Streamable HTTP) for high-throughput crawling of **fresh/latest posts** across large sets of X (Twitter) usernames.
 It supports **x402** pay-as-you-go top-ups using **USDC** on **Base** and **Solana**, and ships an **OpenAPI** spec for direct import by agent builders.
 
-[![Glama MCP](https://glama.ai/mcp/servers/@lvpiggyqq/xcatcher-mcp-manifest/badge)](https://glama.ai/mcp/servers/@lvpiggyqq/xcatcher-mcp-manifest)
+[![Glama MCP](https://glama.ai/mcp/servers/@lvpiggyqq/xcatcher-remote-mcp/badge)](https://glama.ai/mcp/servers/@lvpiggyqq/xcatcher-remote-mcp)
 [![Smithery](https://img.shields.io/badge/Smithery-Listing-0b5fff)](https://smithery.ai/search?q=xcatcher)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0.3-6BA539)](./openapi/xcatcher.yaml)
 
