@@ -1,0 +1,33 @@
+{
+    "$schema": "https://glama.ai/mcp/schemas/server.json",
+    "maintainers": ["lvpiggyqq"],
+    "name": "xcatcher-remote-mcp",
+    "description": "Remote MCP (Streamable HTTP) server for high-throughput X (Twitter) batch crawl of fresh/latest posts. Supports x402 pay-as-you-go USDC top-ups on Base and Solana. Includes OpenAPI + Google ADK/Gemini examples.",
+    "repository": "https://github.com/lvpiggyqq/xcatcher-mcp-manifest",
+    "homepage": "https://xcatcher.top/docs/",
+    "transport": {
+      "type": "streamable_http",
+      "url": "https://xcatcher.top/mcp/"
+    },
+    "health": "https://xcatcher.top/mcp/health",
+    "auth": {
+      "type": "bearer",
+      "header": "Authorization",
+      "tokenPrefix": "Bearer",
+      "example": "xc_live_..."
+    },
+    "tags": [
+      "mcp",
+      "remote-mcp",
+      "streamable-http",
+      "x402",
+      "usdc",
+      "base",
+      "solana",
+      "twitter",
+      "x",
+      "crawler",
+      "batch"
+    ]
+  }
+  

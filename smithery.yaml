@@ -1,0 +1,20 @@
+name: xcatcher-remote-mcp
+description: Remote MCP (Streamable HTTP) server for X batch crawl with x402 USDC topups on Base/Solana.
+startCommand:
+  type: http
+  configSchema:
+    type: object
+    required: [api_key]
+    properties:
+      api_key:
+        type: string
+        description: Xcatcher API key (xc_live_...)
+  commandFunction: |
+    (config) => ({
+      url: "https://xcatcher.top/mcp/",
+      headers: {
+        "Authorization": `Bearer ${config.api_key}`,
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      }
+    })
