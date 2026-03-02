@@ -1,209 +1,156 @@
 ---
-name: xcatcher-mcp
-description: Use Xcatcher Remote MCP and REST to create X crawl tasks, handle x402 topups, poll status, and download result files.
-homepage: https://xcatcher.top/docs/
-user-invocable: true
-metadata: {"openclaw":{"emoji":"🐦","homepage":"https://xcatcher.top/docs/","requires":{"bins":["curl"],"env":["XCATCHER_API_KEY"]},"primaryEnv":"XCATCHER_API_KEY"}}
+name: x402-twitter-fetcher-entry
+description: x402 Fetch Twitter/X main entry: compute points_buy from “N accounts + mode (normal/deep)”, then follow the fixed flow: get quote → pay USDC on-chain (Base/Solana) → exchange payment proof (txHash/signature) for “temporary account + API Key (xc_live_*)” → use that key to create crawl task → get task status → get result download URL → download the results.
+requires:
+  bins:
+    - curl
+os:
+  - linux
+  - darwin
 ---
 
-# Purpose
+# x402 Fetch Twitter/X Entry (N+mode → quote → pay → exchange key → create_crawl_task → get_task_status → get_result_download_url → download)
 
-Use this skill when the user wants to crawl X/Twitter accounts through Xcatcher, monitor task progress, top up points with x402, or download result files.
+## The flow (fixed, do not skip steps)
+N handles + mode (normal/deep)  
+→ get quote  
+→ pay USDC on-chain (Base or Solana)  
+→ exchange payment proof for “temporary account + API Key (xc_live_*)”  
+→ use that key to create crawl task  
+→ get task status  
+→ get result download URL  
+→ download the results
 
-Prefer the Xcatcher Remote MCP interface for task operations. Use REST for authentication, optional x402 quote inspection, and the final file download.
+## Inputs (confirm first)
+- base_url: https://xcatcher.top
+- N: number of handles to crawl (integer)
+- MODE: normal or deep
+- CHAIN: base or solana
+- Payment proof (one of):
+  - Base: txHash
+  - Solana: signature
+- Optional: USERS (array of handles)
 
-# Required runtime values
+## Pricing & points formula (do this first)
+- normal: 1 point / handle
+- deep: 10 points / handle
 
-- Read the API key from `XCATCHER_API_KEY`.
-- Default base URL: `https://xcatcher.top`
-- Remote MCP URL: `https://xcatcher.top/mcp/`
-- REST base: `https://xcatcher.top/api/v1`
+Formula:
+- rate = 1 (normal) OR 10 (deep)
+- points_needed = N * rate
+- points_buy = points_needed
 
-For all Remote MCP JSON-RPC calls, always send these headers:
+Examples:
+- N=200, normal → needed=200 
+- N=200, deep → needed=2000  
 
-- `Authorization: Bearer $XCATCHER_API_KEY`
-- `Accept: application/json`
-- `Content-Type: application/json`
+## Safety boundaries (mandatory)
+- Never request/accept: private keys, seed phrases, exchange API keys, exported wallet files.
+- x402 needs payment proof only: Base txHash / Solana signature.
+- xc_live_* is sensitive: instruct user to save it immediately; do not leak it in logs/public chats/screenshots.
+- If server returns 409 / already processed: do not re-submit the same proof; start a new quote + new payment.
 
-Critical rule: Xcatcher MCP is JSON-RPC over HTTP. Do not call URL paths like `/mcp/tools/list`. Always `POST` to `/mcp/` with a JSON-RPC body. If `Accept: application/json` is missing, the server can return JSON-RPC error `-32600`.
+## Steps (strict order)
 
-# Stable Remote MCP tools
+### Step 0 — Compute points_buy from N + MODE
+Compute points_buy and tell the user:  
+“You want N handles in MODE, you need to buy points_buy points.”
 
-Use these exact tool names:
+### Step 1 — Get quote
+base_url="https://xcatcher.top"  
+POINTS_BUY="240"   # computed in Step 0  
+curl -sS "${base_url}/api/v1/x402/quote?points=${POINTS_BUY}" | tee /tmp/x402_quote.json  
 
-- `create_crawl_task`
-- `x402_topup`
-- `get_task_status`
-- `get_result_download_url`
-- `cancel_task`
+Extract (for selected CHAIN):  
+- quote_id  
+- payTo  
+- asset  
+- maxAmountRequired  
+- expires_in  
 
-# Billing and task rules
+Send “chain/payTo/amount/ttl” to the user to complete on-chain payment.
 
-- `mode: normal` costs 1 point per user.
-- `mode: deep` costs 10 points per user.
-- Always send a stable `idempotency_key` on `create_crawl_task`.
-- If you must retry after payment or a transient error, reuse the same `idempotency_key`.
-- If the request is large and the API rejects it, split user lists into smaller batches, typically 200 to 500 users per task.
+### Step 2 — Pay USDC on-chain
+User pays following the quote instructions:  
+- CHAIN=base: transfer USDC to accepts.base.payTo with accepts.base.maxAmountRequired, then return txHash  
+- CHAIN=solana: transfer SPL USDC to accepts.solana.payTo with accepts.solana.maxAmountRequired, then return signature
 
-# Default operating loop
+### Step 3 — Exchange proof for “temporary account + API Key (xc_live_*)”
+PAYMENT-SIGNATURE = base64(utf8-json). JSON must include quote + proof only.
 
-## 1) Create the crawl task
+Base JSON (proof=txHash):
 
-Prefer Remote MCP.
-
-Inputs:
-
-- `users`: array of X usernames without the `@`
-- `mode`: `normal` or `deep`
-- `idempotency_key`: stable unique key for this logical request
-
-Behavior:
-
-- On success, store the returned `task_id`.
-- On payment failure, branch into the x402 flow below.
-
-## 2) If points are insufficient, handle `PAYMENT_REQUIRED`
-
-When Xcatcher returns `PAYMENT_REQUIRED`, read the embedded payment details and extract:
-
-- `quote_id`
-- `accepts.base.payTo`
-- `accepts.base.maxAmountRequired`
-- `accepts.solana.payTo`
-- `accepts.solana.maxAmountRequired`
-
-Then complete payment on one supported chain:
-
-### Base proof format
-
-Use network `eip155:8453` and a tx-hash-only proof:
-
-```json
 {
   "x402Version": 1,
   "scheme": "exact",
-  "network": "eip155:8453",
-  "payload": {
-    "txHash": "0x...base_transaction_hash..."
-  }
+  "quoteId": "<QUOTE_ID>",
+  "chain": "base",
+  "proof": { "txHash": "<TX_HASH>" },
+  "idempotencyKey": "<ANY_STRING>"
 }
-```
 
-### Solana proof format
+Solana JSON (proof=signature):
 
-Use network `solana:mainnet` and a signature proof:
-
-```json
 {
   "x402Version": 1,
   "scheme": "exact",
-  "network": "solana:mainnet",
-  "payload": {
-    "signature": "5v...solana_tx_signature...pQ"
-  }
+  "quoteId": "<QUOTE_ID>",
+  "chain": "solana",
+  "proof": { "signature": "<SIGNATURE>" },
+  "idempotencyKey": "<ANY_STRING>"
 }
-```
 
-Encode the raw UTF-8 JSON bytes as base64. Do not double-encode. Do not wrap the final base64 value in extra quotes.
+Submit:
 
-Call `x402_topup` with:
+PAYMENT_SIGNATURE_B64="<<<BASE64_JSON_HERE>>>"
 
-- `quote_id`
-- `payment_signature_b64`
-
-Important: topup credits points to the current Bearer key. Keep using the same API key after topup.
-
-After topup succeeds, retry `create_crawl_task` with the exact same `idempotency_key`.
-
-## 3) Poll until the result is ready
-
-Use `get_task_status` every 5 to 10 seconds until the task reports that a result is available.
-
-Branching rules:
-
-- `RATE_LIMITED` or HTTP 429: slow down and honor `Retry-After` if present.
-- `RESULT_NOT_READY` or HTTP 409: keep polling.
-- `UPSTREAM_UNREACHABLE`: report the upstream outage clearly.
-
-## 4) Obtain the result download URL
-
-Use `get_result_download_url` when the task is ready.
-
-Important download rule:
-
-- Result files are not public links.
-- Always download with the same Bearer token.
-- The final REST download is:
-  - `GET /api/v1/tasks/{task_id}/download`
-  - header: `Authorization: Bearer $XCATCHER_API_KEY`
-
-Do not assume `/api/v1/tasks/{task_id}/result` returns JSON. Prefer the download URL or the explicit `/download` endpoint.
-
-# JSON-RPC request templates
-
-## List tools
-
-```bash
-curl -sS -X POST "https://xcatcher.top/mcp/" \
-  -H "Authorization: Bearer $XCATCHER_API_KEY" \
-  -H "Accept: application/json" \
+curl -sS -X POST "${base_url}/api/v1/x402/buy_points" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-```
+  -H "PAYMENT-SIGNATURE: ${PAYMENT_SIGNATURE_B64}" \
+  -d "{\"points\": ${POINTS_BUY} }" | tee /tmp/x402_buy_points_ok.json
 
-## Health check
+Success response should contain:
+  - api_key: xc_live_*  
+  - username: x402_*  
+Tell user to save xc_live_* immediately.
 
-```bash
-curl -sS "https://xcatcher.top/mcp/health"
-```
+### Step 4 — Verify via /me
+API_KEY="<<<XC_LIVE_KEY_HERE>>>"
 
-# REST helpers
+curl -sS "${base_url}/api/v1/me" \
+  -H "Authorization: Bearer ${API_KEY}" | tee /tmp/x402_me.json
 
-## Check current balance
+### Step 5 — Create the crawl task (/api/v1/tasks)
+MODE="normal"  # or deep  
+curl -sS -X POST "${base_url}/api/v1/tasks" \
+  -H "Authorization: Bearer ${API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "'"${MODE}"'",
+    "users": ["elonmusk", "naval"],
+    "note": "x402 flow: N+mode → quote → pay → xc_live → create task"
+  }' | tee /tmp/xcatch_task_create.json
 
-```bash
-curl -sS "https://xcatcher.top/api/v1/me" \
-  -H "Authorization: Bearer $XCATCHER_API_KEY"
-```
+### Step 6 — Get task status (/api/v1/tasks/{task_id})
+TASK_ID="<<<TASK_ID_HERE>>>"
 
-## Get a quote explicitly
+curl -sS "${base_url}/api/v1/tasks/${TASK_ID}" \
+  -H "Authorization: Bearer ${API_KEY}" | tee /tmp/x402_task_status.json
 
-Use this when you need to inspect the quote before paying, or when the user asks to top up a specific number of points manually.
+### Step 7 — Get result download URL (/api/v1/tasks/{task_id}/download)
+curl -sS "${base_url}/api/v1/tasks/${TASK_ID}/download" \
+  -H "Authorization: Bearer ${API_KEY}" | tee /tmp/x402_download_url.json
 
-```bash
-curl -sS "https://xcatcher.top/api/v1/x402/quote?points=100"
-```
+### Step 8 — Download the results
+DOWNLOAD_URL="<<<DOWNLOAD_URL_HERE>>>"
 
-## Download the result file
+curl -sS -O "${DOWNLOAD_URL}" | tee /tmp/x402_results_downloaded.json
 
-```bash
-curl -sS -L "https://xcatcher.top/api/v1/tasks/12345/download" \
-  -H "Authorization: Bearer $XCATCHER_API_KEY" \
-  -o task_12345.xlsx
-```
-
-# Execution preferences
-
-- Prefer Remote MCP for task lifecycle actions.
-- Prefer REST only for `/me`, optional `/x402/quote`, and the final file download.
-- Be explicit about point consumption before creating large jobs.
-- When the user provides many usernames, confirm or summarize the estimated cost before sending a large batch.
-- When a task completes, tell the user the `task_id`, the mode used, the charged points, and where the file was saved.
-- If the API key is missing, instruct the user to set `XCATCHER_API_KEY` in the environment or under `skills.entries.xcatcher-mcp.env.XCATCHER_API_KEY` in `~/.openclaw/openclaw.json`.
-
-# Failure handling
-
-- 401 `AUTH_MISSING` or `AUTH_INVALID`: the Bearer token is missing or invalid.
-- 402 `PAYMENT_REQUIRED`: pay, top up, then retry with the same `idempotency_key`.
-- 409 `RESULT_NOT_READY`: poll again later.
-- 429 `RATE_LIMITED`: slow down and retry after the advised delay.
-- 599 `UPSTREAM_UNREACHABLE`: surface the outage and stop retrying aggressively.
-
-# Minimal success path summary
-
-1. `create_crawl_task`
-2. If 402: pay on Base or Solana, then `x402_topup`
-3. Retry `create_crawl_task` with the same `idempotency_key`
-4. `get_task_status` until ready
-5. `get_result_download_url`
-6. `GET /api/v1/tasks/{task_id}/download` with the same Bearer token
+## Delivery checklist (must include in final reply)
+  - N, MODE, points_buy   
+  - quote payment details (CHAIN, payTo, amount, expires)  
+  - xc_live_* (tell user to save it)  
+  - /me verification (username + points)  
+  - /tasks result (task id / status)  
+  - /download result URL  
+  - Results file downloaded
