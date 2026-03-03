@@ -1,5 +1,5 @@
 ---
-name: xcatcher-mcp
+name: x402-x-tweet-fetcher
 description: Top up Xcatcher points via x402 on Solana (USDC), obtain an API key, create X crawl tasks, poll status, and download XLSX results.
 homepage: https://xcatcher.top/docs/
 user-invocable: true
@@ -195,4 +195,5 @@ echo
 - 402: quote/proof invalid or expired → redo quote + pay + buy_points (steps 1–4).
 - 429: rate limited → backoff; respect Retry-After if present.
 - Task stuck / upstream issues → report clearly; poll with increasing interval if needed.
+
 
