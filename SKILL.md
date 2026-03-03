@@ -1,5 +1,5 @@
 ---
-name: xcatcher-mcp
+name: x402-x-tweet-fetcher
 description: Top up Xcatcher points via x402 on Solana (USDC), obtain an API key, create X crawl tasks, poll status, and download XLSX results.
 homepage: https://xcatcher.top/docs/
 user-invocable: true
