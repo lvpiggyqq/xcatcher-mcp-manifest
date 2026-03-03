@@ -27,6 +27,7 @@ Optional health: https://xcatcher.top/mcp/health
 - mode=normal: 1 point / user
 - mode=deep: 10 points / user
 - estimated_cost = users_count × (mode == normal ? 1 : 10)
+- support chain: base / sol
 
 > Do not hardcode any USDC→points rate. Always trust the quote response.
 
