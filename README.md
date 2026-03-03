@@ -68,6 +68,7 @@ PY
 )"
 echo
 
+QUOTE_ID must save
 ---
 
 ## 2) Pay USDC on Solana mainnet
@@ -194,3 +195,4 @@ echo
 - 402: quote/proof invalid or expired → redo quote + pay + buy_points (steps 1–4).
 - 429: rate limited → backoff; respect Retry-After if present.
 - Task stuck / upstream issues → report clearly; poll with increasing interval if needed.
+
