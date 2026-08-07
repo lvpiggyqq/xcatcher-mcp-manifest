@@ -1,32 +1,20 @@
-# Smithery configuration file:
-# https://smithery.ai/docs/build/project-config
-
+# Legacy repository metadata for Smithery-compatible importers.
+# Current Smithery publication should use:
+# smithery mcp publish "https://xcatcher.top/mcp/" -n lvpiggyqq/xcatcher
 name: xcatcher-remote-mcp
-description: Remote MCP (Streamable HTTP) for X/Twitter batch crawl of fresh/latest posts. Supports x402 USDC top-ups on Base & Solana.
+description: Fetch recent public X (Twitter) posts by handle with structured JSON and optional accountless x402 v2 USDC pay-per-crawl on Base.
 startCommand:
   type: http
-
-  # JSON Schema for user-supplied config in Smithery UI
   configSchema:
     type: object
-    required: [api_key]
-    properties:
-      api_key:
-        type: string
-        description: Xcatcher API key (xc_live_...)
-        format: password
-
-  # A JS function that returns how to connect to your Remote MCP endpoint
+    properties: {}
+    additionalProperties: false
   commandFunction: |
-    (config) => ({
+    () => ({
       url: "https://xcatcher.top/mcp/",
       headers: {
-        "Authorization": `Bearer ${config.api_key}`,
         "Accept": "application/json",
         "Content-Type": "application/json"
       }
     })
-
-# A minimal example shown to users in Smithery UI
-exampleConfig:
-  api_key: "xc_live_xxx"
+exampleConfig: {}

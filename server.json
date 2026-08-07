@@ -1,118 +1,56 @@
 {
-    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-    "name": "io.github.lvpiggyqq/xcatcher",
-    "title": "Xcatcher (XCATCHER)",
-    "description": "High-throughput X/Twitter crawl via tasks; download XLSX; x402 USDC Base/Solana top-ups.",
-    "version": "1.0.3",
-    "websiteUrl": "https://xcatcher.top/docs/",
-    "repository": {
-      "url": "https://github.com/lvpiggyqq/xcatcher-mcp-manifest",
-      "source": "github"
-    },
-    "remotes": [
-      {
-        "type": "streamable-http",
-        "url": "https://xcatcher.top/mcp/",
-        "headers": [
-          {
-            "name": "Authorization",
-            "description": "Bearer xc_live_... API key (required).",
-            "isRequired": true,
-            "isSecret": true,
-            "placeholder": "Bearer xc_live_..."
-          },
-          {
-            "name": "Accept",
-            "description": "application/json (required).",
-            "isRequired": true,
-            "isSecret": false,
-            "placeholder": "application/json"
-          },
-          {
-            "name": "Content-Type",
-            "description": "application/json (required for JSON-RPC POST).",
-            "isRequired": true,
-            "isSecret": false,
-            "placeholder": "application/json"
-          }
-        ]
-      }
-    ],
-    "_meta": {
-      "io.modelcontextprotocol.registry/publisher-provided": {
-        "product": "Xcatcher",
-        "publisher": "lvpiggyqq",
-        "category": [
-          "social-intelligence",
-          "osint",
-          "market-research",
-          "automation"
-        ],
-        "keywords": [
-          "X",
-          "Twitter",
-          "high-throughput",
-          "concurrency",
-          "latest-posts",
-          "crawl",
-          "task",
-          "export",
-          "xlsx",
-          "csv",
-          "remote-mcp",
-          "streamable-http",
-          "x402",
-          "base",
-          "solana",
-          "usdc"
-        ],
-        "highlights": [
-          "Optimized for batch 'latest posts' retrieval across large sets of X users",
-          "Task-based flow: submit task → poll status → download result file",
-          "Results are provided as XLSX. If CSV is needed, convert the downloaded XLSX to CSV client-side",
-          "Supports x402 top-ups (USDC on Base or Solana) when points are insufficient (handle 402 then retry)"
-        ],
-        "compatibilityNotes": [
-          "If CSV is needed, convert the downloaded XLSX to CSV client-side."
-        ],
-        "modes": {
-          "normal": "Fast latest-post snapshot at scale (fresh-feed monitoring).",
-          "deep": "Deeper per-user collection/enrichment (slower; higher resource usage)."
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.lvpiggyqq/xcatcher",
+  "title": "Xcatcher — Recent X Posts",
+  "description": "Fetch recent X posts by handle via MCP, with JSON and accountless x402 v2 USDC on Base.",
+  "version": "3.0.0",
+  "websiteUrl": "https://xcatcher.top/",
+  "repository": {
+    "url": "https://github.com/lvpiggyqq/xcatcher-mcp-manifest",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://xcatcher.top/mcp/",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Optional Xcatcher API key for account tools. Discovery and direct x402 tools work without it.",
+          "isRequired": false,
+          "isSecret": true,
+          "placeholder": "Bearer xc_live_..."
         },
-        "billingNotes": [
-          "Task billing (docs default): normal = 1 point/user; deep = 10 points/user. Actual cost is returned by create responses.",
-          "When MCP returns 402 PAYMENT_REQUIRED, pay using quote_id + on-chain proof, call x402_topup, then retry with the same idempotency_key."
-        ],
-        "endpoints": {
-          "docs": "https://xcatcher.top/docs/",
-          "taskDownload": "https://xcatcher.top/api/v1/tasks/{task_id}/download"
-        },
-        "performanceNotes": [
-          "Typical benchmark (Normal): ~1000 users → ~5000 tweets in ~2 minutes under normal conditions.",
-          "Actual throughput depends on time window, X platform rate limits, and network conditions. For very large sets, split into multiple tasks."
-        ],
-        "payments": {
-          "model": "x402",
-          "mcpTool": "x402_topup",
-          "quoteEndpoint": "https://xcatcher.top/api/v1/x402/quote?points={points}",
-          "topupEndpoint": "https://xcatcher.top/api/v1/x402/topup",
-          "topupRequiredHeader": "PAYMENT-SIGNATURE",
-          "options": [
-            {
-              "asset": "USDC",
-              "network": "Base (eip155:8453)",
-              "proof": "txHash",
-              "label": "USDC on Base"
-            },
-            {
-              "asset": "USDC",
-              "network": "Solana (solana:mainnet)",
-              "proof": "signature",
-              "label": "USDC (SPL) on Solana"
-            }
-          ]
+        {
+          "name": "Accept",
+          "description": "Request JSON responses from the stateless Remote MCP server.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "application/json"
         }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "product": "Xcatcher",
+      "category": ["social-intelligence", "osint", "market-research", "automation"],
+      "keywords": ["X", "Twitter", "recent-posts", "batch-monitoring", "x402-v2", "USDC", "Base", "accountless"],
+      "capabilities": {
+        "input": "1-500 named X account handles per task",
+        "output": "Paginated native JSON or authenticated XLSX",
+        "access": "Accountless x402 v2 per crawl, or scoped API-key account",
+        "modes": {
+          "normal": "Small latest-post snapshot; 1 point per handle",
+          "deep": "Deeper per-handle pull; 10 points per handle"
+        }
+      },
+      "documentation": {
+        "docs": "https://xcatcher.top/docs/",
+        "skill": "https://xcatcher.top/skills/xcatcher/SKILL.md",
+        "openapi": "https://xcatcher.top/openapi.yaml",
+        "llms": "https://xcatcher.top/llms.txt"
       }
     }
   }
-  
+}
