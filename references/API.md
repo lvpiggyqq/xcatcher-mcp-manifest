@@ -7,6 +7,8 @@ Base URL: `https://xcatcher.top`. OpenAPI: `https://xcatcher.top/openapi.yaml`.
 | Purpose | Method and path | Auth | Side effect |
 |---|---|---|---|
 | Service capabilities | `GET /api/v1/capabilities` | No | No |
+| Crawl preflight | `POST /api/v1/preflight` | No | No; no quote or task |
+| Synthetic result example | `GET /api/v1/demo` | No | No; never fetches X |
 | MCP health | `GET /mcp/health` | No | No |
 | MCP tools | `POST /mcp/` | Optional Bearer | Depends on tool |
 | Direct crawl challenge | `POST /api/v1/x402/crawl` | No | Creates expiring quote |
@@ -71,6 +73,7 @@ Only the new key secret is returned at creation. Store it securely; listing keys
 Discovery and accountless tools work without an API key:
 
 - `get_service_info`
+- `preflight_crawl`, `get_sample_result`
 - `get_direct_crawl_payment`
 - `submit_direct_crawl_payment`
 - `get_direct_task_status`
@@ -102,4 +105,4 @@ Errors use `error.code`, `error.message`, optional `error.details`, and `request
 
 ## REST fallback
 
-Run `python3 scripts/xcatcher.py --help`. Start with `capabilities`; other useful commands include `direct-quote`, `direct-submit`, `direct-status`, `direct-results`, `create`, `list`, `wait`, `results`, and `download`.
+Run `python3 scripts/xcatcher.py --help`. Start with `capabilities`, then use `preflight HANDLE...` and optionally `demo`. The helper can preview a direct x402 challenge but intentionally cannot submit a payment. Authenticated commands read `XCATCHER_API_KEY` or `XCATCHER_TASK_TOKEN` only from the process environment; they never accept credentials as command-line arguments. Use an approved wallet connector for payment submission.

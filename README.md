@@ -10,11 +10,24 @@ For an AI agent, provide the canonical Skill URL:
 https://xcatcher.top/skills/xcatcher/SKILL.md
 ```
 
-The standalone `SKILL.md` contains the complete Remote MCP workflow. For a persistent installation with references, agent metadata, and the dependency-free REST helper, use the complete bundle:
+The standalone `SKILL.md` contains the complete Remote MCP workflow. For a persistent installation in Codex, Claude Code, Cursor, Cline, and other Agent Skills compatible hosts, use the dedicated minimal Skill repository:
+
+```bash
+npx skills add lvpiggyqq/xcatcher-skill --skill xcatcher
+```
+
+GitHub CLI users can inspect and install the same package with:
+
+```bash
+gh skill preview lvpiggyqq/xcatcher-skill xcatcher
+gh skill install lvpiggyqq/xcatcher-skill xcatcher
+```
+
+See the [installation guide](https://xcatcher.top/integrations/agent-skills/) or the dedicated [`xcatcher-skill`](https://github.com/lvpiggyqq/xcatcher-skill) repository. A versioned ZIP remains available for hosts that install bundles directly:
 
 ```text
-https://xcatcher.top/skills/xcatcher.zip?v=3.0.4
-SHA-256: a799a06da9448e4ea87ae5365247e17ab94a79ac26a3f97b45a507e8bf70bbc2
+https://xcatcher.top/skills/xcatcher.zip?v=3.1.2
+SHA-256: 3db290a1787112431b8bd310f48208dccfdcec8acb1376364f99eec3f0708860
 ```
 
 For an MCP client, connect the Streamable HTTP endpoint:
@@ -28,6 +41,8 @@ Tool discovery and the accountless x402 tools do not require an Xcatcher API key
 ## What agents use it for
 
 - Monitor recent posts from a fixed watchlist of companies, founders, researchers, or public figures.
+- Preflight and deduplicate handles for free before creating any quote, task, or payment.
+- Inspect a clearly labeled synthetic result contract without fetching X.
 - Compare announcements and themes across multiple X accounts.
 - Collect public timeline snapshots for social intelligence, market research, or OSINT.
 - Retrieve paginated native JSON for analysis, or authenticated XLSX for a full export.
@@ -37,10 +52,11 @@ The input is 1–500 named handles or profile URLs per task. Xcatcher is not key
 ## Agent workflow
 
 1. Call `get_service_info` to inspect live capabilities and prices.
-2. If the user has a wallet but no Xcatcher account, call `get_direct_crawl_payment`.
-3. Show the exact live USDC amount, Base network, asset, destination, and expiry; obtain approval before wallet signing.
-4. Call `submit_direct_crawl_payment` with the wallet-generated `PAYMENT-SIGNATURE` and the same handles and mode.
-5. Poll `get_direct_task_status`, then read structured rows with `get_direct_result_preview`.
+2. Call `preflight_crawl` to normalize handles and preview modeled cost with no side effects. Use `get_sample_result` when the user wants to inspect the synthetic output contract.
+3. If the user has a wallet but no Xcatcher account, call `get_direct_crawl_payment` with the normalized input.
+4. Show the exact live USDC amount, Base network, asset, destination, and expiry; obtain approval before wallet signing.
+5. Have the approved x402 client submit the wallet-generated `PAYMENT-SIGNATURE` with the same handles and mode. Use `submit_direct_crawl_payment` only when the MCP host can inject the signature through a host-managed secret channel.
+6. Keep the returned task token in that secret store, poll `get_direct_task_status`, then read structured rows with `get_direct_result_preview`.
 
 Existing API-key users can instead call `create_crawl_task`, `wait_for_task`, and `get_result_preview`. The [Agent Skill](SKILL.md) contains the complete decision tree, retry rules, and security boundaries.
 
@@ -50,13 +66,28 @@ Existing API-key users can instead call `create_crawl_task`, `wait_for_task`, an
 |---|---|
 | English overview | <https://xcatcher.top/en/> |
 | Documentation | <https://xcatcher.top/docs/> |
+| One-command Skill installation | <https://xcatcher.top/integrations/agent-skills/> |
+| X account monitoring use case | <https://xcatcher.top/use-cases/x-account-monitoring/> |
+| Trust center | <https://xcatcher.top/trust/> |
+| Live status | <https://xcatcher.top/status/> |
 | Canonical Agent Skill | <https://xcatcher.top/skills/xcatcher/SKILL.md> |
+| Dedicated Skill repository | <https://github.com/lvpiggyqq/xcatcher-skill> |
 | Skill bundle metadata | <https://xcatcher.top/.well-known/skills> |
 | Remote MCP | <https://xcatcher.top/mcp/> |
 | MCP Registry manifest | <https://xcatcher.top/server.json> |
 | OpenAPI 3.0.3 | <https://xcatcher.top/openapi.yaml> |
 | LLM discovery index | <https://xcatcher.top/llms.txt> |
 | Health check | <https://xcatcher.top/mcp/health> |
+
+## Live smoke test
+
+The dependency-free smoke test calls only anonymous, read-only operations: `tools/list`, `preflight_crawl`, and `get_sample_result`. It never requests a payment requirement, creates a task, submits a signature, or moves funds.
+
+```bash
+python3 tests/smoke_remote_mcp.py
+```
+
+The same test runs in GitHub Actions on changes and once per day. Public Skill security evidence is available on the [AgentSkill.sh audit page](https://agentskill.sh/@xcatcher-top/xcatcher/security), and current MCP tool definitions are visible on the [verified Glama connector](https://glama.ai/mcp/connectors/io.github.lvpiggyqq/xcatcher).
 
 ## Repository contents
 
@@ -66,6 +97,7 @@ Existing API-key users can instead call `create_crawl_task`, `wait_for_task`, an
 - [`references/PAYMENTS.md`](references/PAYMENTS.md): x402 v2 payment protocol and safety rules.
 - [`scripts/xcatcher.py`](scripts/xcatcher.py): dependency-free REST fallback client.
 - [`server.json`](server.json): official MCP Registry publication manifest.
+- [`tests/smoke_remote_mcp.py`](tests/smoke_remote_mcp.py): anonymous, no-side-effect production contract check.
 
 ## Safety
 

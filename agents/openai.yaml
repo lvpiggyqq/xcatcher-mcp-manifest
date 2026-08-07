@@ -1,11 +1,11 @@
 interface:
   display_name: "Xcatcher X Post Fetcher"
-  short_description: "Fetch recent X posts by handle; pay via x402"
-  default_prompt: "Use $xcatcher to collect recent public posts from these X handles, choose the safest access path, and report coverage."
+  short_description: "Preflight and fetch recent public X posts by handle"
+  default_prompt: "Use $xcatcher to preflight these X handles for free, show the modeled cost before any payment, collect recent public posts through the safest approved path, and report coverage."
 dependencies:
   tools:
     - type: "mcp"
       value: "xcatcher"
-      description: "Remote MCP for X post crawling, structured results, and accountless x402 v2 payment"
+      description: "Remote MCP for free preflight, synthetic samples, structured X post results, and optional host-mediated x402 access"
       transport: "streamable_http"
       url: "https://xcatcher.top/mcp/"
