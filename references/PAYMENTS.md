@@ -6,6 +6,7 @@ Use the accountless direct crawl for new wallet-based integrations. It implement
 
 - Obtain approval for the exact live amount, USDC contract, Base network, and `payTo` unless a user policy already authorizes all of them.
 - Never request, expose, or store seed phrases/private keys. Use a wallet or x402 client that signs internally.
+- Keep payment signatures and task tokens out of prompt-visible arguments, command-line history, logs, and ordinary files. Use the wallet/client's credential channel or the agent host's secret store; stop before submission if neither is available.
 - A challenge is bound to normalized `users`, `mode`, resource URL, and `quoteId`. Do not change any of them between challenge and submission.
 - Quotes expire. Never reuse cached payment terms or a signature for a different request.
 - If settlement response is uncertain, retry the identical signed request. Do not create a new quote or pay again until the original receipt state is known.
@@ -65,14 +66,14 @@ The example abbreviates the Bazaar output and JSON Schema. Wallet clients must c
 
 An x402 v2 client selects the exact accepted requirement and produces a Base64 JSON `PAYMENT-SIGNATURE` containing `x402Version`, `resource`, `accepted`, and the scheme-specific signed `payload`. Xcatcher verifies the EIP-712 authorization and settles USDC with `transferWithAuthorization`; the wallet never sends a private key to Xcatcher.
 
-Retry the exact HTTP request with that header. Success is `201` with:
+Have the approved x402 client retry the exact HTTP request with that header without copying it through chat. Success is `201` with:
 
 - `PAYMENT-RESPONSE`: Base64 settlement result including transaction/network/payer
 - `task.task_id`: async crawl task
 - `task_token`: task-scoped Bearer credential, reusable for that task until its seven-day expiry; keep it secret
 - `access_expires_at`: seven-day access expiry
 
-Persist the token securely, then use it only against `/api/v1/x402/tasks/{task_id}` and its `/results` or `/download` children.
+Put the token in a host secret store, then inject it only for `/api/v1/x402/tasks/{task_id}` and its `/results` or `/download` children. Do not place the token in a prompt, command-line argument, or generated report.
 
 ## Account top-up compatibility
 
