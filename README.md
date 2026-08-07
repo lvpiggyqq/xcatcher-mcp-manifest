@@ -26,8 +26,8 @@ gh skill install lvpiggyqq/xcatcher-skill xcatcher
 See the [installation guide](https://xcatcher.top/integrations/agent-skills/) or the dedicated [`xcatcher-skill`](https://github.com/lvpiggyqq/xcatcher-skill) repository. A versioned ZIP remains available for hosts that install bundles directly:
 
 ```text
-https://xcatcher.top/skills/xcatcher.zip?v=3.0.4
-SHA-256: a799a06da9448e4ea87ae5365247e17ab94a79ac26a3f97b45a507e8bf70bbc2
+https://xcatcher.top/skills/xcatcher.zip?v=3.0.5
+SHA-256: b921551c31f1d800db730fd123da8ec88e73ff6c2965e67abe4b23931c9d6830
 ```
 
 For an MCP client, connect the Streamable HTTP endpoint:
@@ -52,8 +52,8 @@ The input is 1–500 named handles or profile URLs per task. Xcatcher is not key
 1. Call `get_service_info` to inspect live capabilities and prices.
 2. If the user has a wallet but no Xcatcher account, call `get_direct_crawl_payment`.
 3. Show the exact live USDC amount, Base network, asset, destination, and expiry; obtain approval before wallet signing.
-4. Call `submit_direct_crawl_payment` with the wallet-generated `PAYMENT-SIGNATURE` and the same handles and mode.
-5. Poll `get_direct_task_status`, then read structured rows with `get_direct_result_preview`.
+4. Have the approved x402 client submit the wallet-generated `PAYMENT-SIGNATURE` with the same handles and mode. Use `submit_direct_crawl_payment` only when the MCP host can inject the signature through a host-managed secret channel.
+5. Keep the returned task token in that secret store, poll `get_direct_task_status`, then read structured rows with `get_direct_result_preview`.
 
 Existing API-key users can instead call `create_crawl_task`, `wait_for_task`, and `get_result_preview`. The [Agent Skill](SKILL.md) contains the complete decision tree, retry rules, and security boundaries.
 
