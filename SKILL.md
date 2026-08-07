@@ -26,7 +26,11 @@ Prefer the Remote MCP at `https://xcatcher.top/mcp/`. It supports discovery and 
 
 ## Choose a path
 
-Call `get_service_info` first, then use exactly one path:
+Call `get_service_info` first. Then call `preflight_crawl(users, mode)` for every new crawl intent. Preflight is free and read-only: it normalizes handles, deduplicates them, validates the mode, and previews the current modeled points/USDC cost without authentication, a quote, a task, or a payment. Treat the later live 402 requirement as authoritative.
+
+If the user or host wants to inspect the output contract before spending, call `get_sample_result`. It returns clearly labeled synthetic rows and coverage metadata; it does not fetch live X data.
+
+After preflight, use exactly one path:
 
 1. **Wallet, no Xcatcher account:** use the accountless x402 flow below. This is the shortest pay-per-use path.
 2. **Existing `XCATCHER_API_KEY`:** call `get_account_balance`, then use the account flow.
@@ -36,7 +40,7 @@ Normalize inputs by accepting handles, `@handles`, or `x.com`/`twitter.com` prof
 
 ## Accountless x402 flow
 
-1. Call `get_direct_crawl_payment(users, mode)`. It creates a request-bound challenge but moves no funds.
+1. Call `get_direct_crawl_payment` with the exact normalized `users` and `mode` returned by preflight. It creates a request-bound challenge but moves no funds.
 2. Show the exact `amount`, `asset`, `network`, `payTo`, and expiry from `payment_required`. Obtain spending approval.
 3. Give `payment_required_b64` to an x402 v2-compatible wallet/client through its approved integration. Do not ask for or handle a private key.
 4. Have that client submit the resulting `PAYMENT-SIGNATURE` with the exact same normalized `users` and `mode`. Use `submit_direct_crawl_payment` only when the MCP host can inject the signature through a secret channel rather than model-visible text. Retrying the identical signed request is safe; changing parameters is not.
@@ -47,7 +51,7 @@ Read [references/PAYMENTS.md](references/PAYMENTS.md) before implementing wallet
 
 ## API-key account flow
 
-1. Call `get_account_balance` and estimate the cost using its live per-handle prices.
+1. Call `get_account_balance` and compare the balance with the preflight `cost_points`.
 2. Call `create_crawl_task` with a stable `idempotency_key`. Reuse that key only for retries of the same handles and mode.
 3. If `PAYMENT_REQUIRED` is returned, obtain approval, satisfy one live requirement, call `x402_topup`, and retry with the same idempotency key.
 4. Call `wait_for_task`. If it times out, wait again using the same `task_id`; do not recreate the task.

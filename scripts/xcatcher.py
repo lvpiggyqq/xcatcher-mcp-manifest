@@ -37,7 +37,7 @@ def request(
     payment_signature: str = "",
 ) -> tuple[int, dict[str, Any], bytes, dict[str, str]]:
     data = None if body is None else json.dumps(body, separators=(",", ":")).encode()
-    headers = {"Accept": "application/json", "User-Agent": "xcatcher-agent-skill/3.0"}
+    headers = {"Accept": "application/json", "User-Agent": "xcatcher-agent-skill/3.1"}
     if data is not None:
         headers["Content-Type"] = "application/json"
     if key:
@@ -121,6 +121,11 @@ def main() -> None:
     sub.add_parser("health")
     sub.add_parser("capabilities")
     sub.add_parser("tools")
+    sub.add_parser("demo")
+
+    preflight = sub.add_parser("preflight")
+    preflight.add_argument("users", nargs="+")
+    preflight.add_argument("--mode", choices=("normal", "deep"), default="normal")
 
     register = sub.add_parser("register")
     register.add_argument("username")
@@ -210,6 +215,17 @@ def main() -> None:
             "POST",
             "/mcp/",
             body={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+        )
+        emit(status, payload, headers)
+    elif args.command == "demo":
+        status, payload, _, headers = request(base, "GET", "/api/v1/demo")
+        emit(status, payload, headers)
+    elif args.command == "preflight":
+        status, payload, _, headers = request(
+            base,
+            "POST",
+            "/api/v1/preflight",
+            body={"users": normalize_users(args.users), "mode": args.mode},
         )
         emit(status, payload, headers)
     elif args.command == "register":

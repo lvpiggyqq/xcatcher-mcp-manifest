@@ -1,7 +1,7 @@
 interface:
   display_name: "Xcatcher X Post Fetcher"
   short_description: "Fetch recent X posts by handle; pay via x402"
-  default_prompt: "Use $xcatcher to collect recent public posts from these X handles, choose the safest access path, and report coverage."
+  default_prompt: "Use $xcatcher to preflight these X handles for free, show the modeled cost before any payment, collect recent public posts through the safest approved path, and report coverage."
 dependencies:
   tools:
     - type: "mcp"

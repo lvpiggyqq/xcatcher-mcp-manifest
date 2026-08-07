@@ -3,7 +3,7 @@
   "name": "io.github.lvpiggyqq/xcatcher",
   "title": "Xcatcher — Recent X Posts",
   "description": "Fetch recent X posts by handle via MCP, with JSON and accountless x402 v2 USDC on Base.",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "websiteUrl": "https://xcatcher.top/",
   "repository": {
     "url": "https://github.com/lvpiggyqq/xcatcher-mcp-manifest",
@@ -40,6 +40,7 @@
         "input": "1-500 named X account handles per task",
         "output": "Paginated native JSON or authenticated XLSX",
         "access": "Accountless x402 v2 per crawl, or scoped API-key account",
+        "freeOnboarding": "Anonymous no-side-effect preflight and synthetic sample result",
         "modes": {
           "normal": "Small latest-post snapshot; 1 point per handle",
           "deep": "Deeper per-handle pull; 10 points per handle"
@@ -49,7 +50,10 @@
         "docs": "https://xcatcher.top/docs/",
         "skill": "https://xcatcher.top/skills/xcatcher/SKILL.md",
         "openapi": "https://xcatcher.top/openapi.yaml",
-        "llms": "https://xcatcher.top/llms.txt"
+        "llms": "https://xcatcher.top/llms.txt",
+        "preflight": "https://xcatcher.top/api/v1/preflight",
+        "sample": "https://xcatcher.top/api/v1/demo",
+        "cdpBazaarValidationResource": "https://xcatcher.top/api/v1/x402/crawl?users=openai&mode=normal"
       }
     }
   }
