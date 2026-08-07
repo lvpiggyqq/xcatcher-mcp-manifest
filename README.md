@@ -10,7 +10,20 @@ For an AI agent, provide the canonical Skill URL:
 https://xcatcher.top/skills/xcatcher/SKILL.md
 ```
 
-The standalone `SKILL.md` contains the complete Remote MCP workflow. For a persistent installation with references, agent metadata, and the dependency-free REST helper, use the complete bundle:
+The standalone `SKILL.md` contains the complete Remote MCP workflow. For a persistent installation in Codex, Claude Code, Cursor, Cline, and other Agent Skills compatible hosts, use the dedicated minimal Skill repository:
+
+```bash
+npx skills add lvpiggyqq/xcatcher-skill --skill xcatcher
+```
+
+GitHub CLI users can inspect and install the same package with:
+
+```bash
+gh skill preview lvpiggyqq/xcatcher-skill xcatcher
+gh skill install lvpiggyqq/xcatcher-skill xcatcher
+```
+
+See the [installation guide](https://xcatcher.top/integrations/agent-skills/) or the dedicated [`xcatcher-skill`](https://github.com/lvpiggyqq/xcatcher-skill) repository. A versioned ZIP remains available for hosts that install bundles directly:
 
 ```text
 https://xcatcher.top/skills/xcatcher.zip?v=3.0.4
@@ -50,7 +63,10 @@ Existing API-key users can instead call `create_crawl_task`, `wait_for_task`, an
 |---|---|
 | English overview | <https://xcatcher.top/en/> |
 | Documentation | <https://xcatcher.top/docs/> |
+| One-command Skill installation | <https://xcatcher.top/integrations/agent-skills/> |
+| X account monitoring use case | <https://xcatcher.top/use-cases/x-account-monitoring/> |
 | Canonical Agent Skill | <https://xcatcher.top/skills/xcatcher/SKILL.md> |
+| Dedicated Skill repository | <https://github.com/lvpiggyqq/xcatcher-skill> |
 | Skill bundle metadata | <https://xcatcher.top/.well-known/skills> |
 | Remote MCP | <https://xcatcher.top/mcp/> |
 | MCP Registry manifest | <https://xcatcher.top/server.json> |
