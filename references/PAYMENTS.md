@@ -64,9 +64,9 @@ The server responds `402` with a Base64-encoded `PAYMENT-REQUIRED` header and eq
 
 The example abbreviates the Bazaar output and JSON Schema. Wallet clients must copy the complete live `PAYMENT-REQUIRED` value unchanged rather than reconstructing its `extensions` field. Bazaar-aware clients can use this metadata to understand the POST body and result shape; catalog inclusion still depends on settlement through a facilitator that supports Bazaar indexing.
 
-An x402 v2 client selects the exact accepted requirement and produces a Base64 JSON `PAYMENT-SIGNATURE` containing `x402Version`, `resource`, `accepted`, and the scheme-specific signed `payload`. Xcatcher verifies the EIP-712 authorization and settles USDC with `transferWithAuthorization`; the wallet never sends a private key to Xcatcher.
+An x402 v2 wallet connector selects the exact accepted requirement and signs internally. Xcatcher verifies the EIP-712 authorization and settles USDC with `transferWithAuthorization`; the wallet never sends a private key to Xcatcher, and the model must not receive the payment proof.
 
-Have the approved x402 client retry the exact HTTP request with that header without copying it through chat. Success is `201` with:
+Have the approved x402 connector retry the exact HTTP request without copying any credential through chat. Success is `201` with:
 
 - `PAYMENT-RESPONSE`: Base64 settlement result including transaction/network/payer
 - `task.task_id`: async crawl task

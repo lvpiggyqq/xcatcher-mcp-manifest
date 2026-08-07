@@ -105,4 +105,4 @@ Errors use `error.code`, `error.message`, optional `error.details`, and `request
 
 ## REST fallback
 
-Run `python3 scripts/xcatcher.py --help`. Start with `capabilities`, then use `preflight HANDLE...` and optionally `demo`. Other useful commands include `direct-quote`, `direct-submit`, `direct-status`, `direct-results`, `create`, `list`, `wait`, `results`, and `download`.
+Run `python3 scripts/xcatcher.py --help`. Start with `capabilities`, then use `preflight HANDLE...` and optionally `demo`. The helper can preview a direct x402 challenge but intentionally cannot submit a payment. Authenticated commands read `XCATCHER_API_KEY` or `XCATCHER_TASK_TOKEN` only from the process environment; they never accept credentials as command-line arguments. Use an approved wallet connector for payment submission.

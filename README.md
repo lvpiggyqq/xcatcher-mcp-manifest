@@ -26,8 +26,8 @@ gh skill install lvpiggyqq/xcatcher-skill xcatcher
 See the [installation guide](https://xcatcher.top/integrations/agent-skills/) or the dedicated [`xcatcher-skill`](https://github.com/lvpiggyqq/xcatcher-skill) repository. A versioned ZIP remains available for hosts that install bundles directly:
 
 ```text
-https://xcatcher.top/skills/xcatcher.zip?v=3.1.0
-SHA-256: b324591463b82baf3441ae04c9c69418ffb10765db35bcfede6463645baa2ddf
+https://xcatcher.top/skills/xcatcher.zip?v=3.1.2
+SHA-256: 3db290a1787112431b8bd310f48208dccfdcec8acb1376364f99eec3f0708860
 ```
 
 For an MCP client, connect the Streamable HTTP endpoint:
@@ -79,6 +79,16 @@ Existing API-key users can instead call `create_crawl_task`, `wait_for_task`, an
 | LLM discovery index | <https://xcatcher.top/llms.txt> |
 | Health check | <https://xcatcher.top/mcp/health> |
 
+## Live smoke test
+
+The dependency-free smoke test calls only anonymous, read-only operations: `tools/list`, `preflight_crawl`, and `get_sample_result`. It never requests a payment requirement, creates a task, submits a signature, or moves funds.
+
+```bash
+python3 tests/smoke_remote_mcp.py
+```
+
+The same test runs in GitHub Actions on changes and once per day. Public Skill security evidence is available on the [AgentSkill.sh audit page](https://agentskill.sh/@xcatcher-top/xcatcher/security), and current MCP tool definitions are visible on the [verified Glama connector](https://glama.ai/mcp/connectors/io.github.lvpiggyqq/xcatcher).
+
 ## Repository contents
 
 - [`SKILL.md`](SKILL.md): canonical Agent instructions.
@@ -87,6 +97,7 @@ Existing API-key users can instead call `create_crawl_task`, `wait_for_task`, an
 - [`references/PAYMENTS.md`](references/PAYMENTS.md): x402 v2 payment protocol and safety rules.
 - [`scripts/xcatcher.py`](scripts/xcatcher.py): dependency-free REST fallback client.
 - [`server.json`](server.json): official MCP Registry publication manifest.
+- [`tests/smoke_remote_mcp.py`](tests/smoke_remote_mcp.py): anonymous, no-side-effect production contract check.
 
 ## Safety
 
