@@ -32,7 +32,7 @@ Prefer the Remote MCP at `https://xcatcher.top/mcp/`. It supports discovery and 
 
 ## Choose a path
 
-Call `get_service_info` first. Then call `preflight_crawl(users, mode)` for every new crawl intent. Preflight is free and read-only: it normalizes handles, deduplicates them, validates the mode, and previews the current modeled points/USDC cost without authentication, a quote, a task, or a payment. Treat the later live 402 requirement as authoritative.
+Call `get_service_info` first. Then call `preflight_crawl(users, mode)` for every new crawl intent. Preflight is free and read-only: it normalizes handles, deduplicates them, validates the mode, and previews the current modeled points/USDC cost without authentication, a quote, a task, or a payment. Accountless normal-mode x402 pricing is progressive, so preflight the complete deduplicated handle list together rather than splitting it solely for pricing; internal Actor failover adds no extra charge. Treat the later live 402 requirement as authoritative.
 
 If the user or host wants to inspect the output contract before spending, call `get_sample_result`. It returns clearly labeled synthetic rows and coverage metadata; it does not fetch live X data.
 
@@ -67,4 +67,4 @@ Use `list_crawl_tasks` to recover recent task IDs. Read [references/API.md](refe
 
 ## Report results
 
-State the requested handle count, task mode, returned row count, handles with no returned posts, and per-handle upstream failures from `result_meta`. Result rows use `username`, `tweet_time`, `content`, and `tweet_link`.
+State the requested handle count, task mode, returned row count, handles with no returned posts, bounded attempt counts, and per-handle upstream failures from `result_meta`. Treat `NO_PUBLIC_POSTS_OR_HANDLE_UNAVAILABLE` as ambiguous: the account can be unavailable, private, mistyped, or simply have no returned public rows. Result rows use `username`, `tweet_time`, `content`, and `tweet_link`.
