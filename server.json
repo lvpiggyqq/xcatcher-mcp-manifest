@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.lvpiggyqq/xcatcher",
   "title": "Xcatcher — Recent X Posts",
-  "description": "Fetch recent X posts by handle via MCP, with JSON and accountless x402 v2 USDC on Base.",
-  "version": "3.0.0",
+  "description": "Fetch recent public X/Twitter posts by named handle for monitoring, comparison, OSINT, and research.",
+  "version": "3.1.0",
   "websiteUrl": "https://xcatcher.top/",
   "repository": {
     "url": "https://github.com/lvpiggyqq/xcatcher-mcp-manifest",
@@ -40,16 +40,30 @@
         "input": "1-500 named X account handles per task",
         "output": "Paginated native JSON or authenticated XLSX",
         "access": "Accountless x402 v2 per crawl, or scoped API-key account",
+        "freeOnboarding": "Anonymous no-side-effect preflight and synthetic sample result",
         "modes": {
           "normal": "Small latest-post snapshot; 1 point per handle",
           "deep": "Deeper per-handle pull; 10 points per handle"
+        },
+        "directX402Pricing": {
+          "pricingVersion": "2026-08-11.progressive-v1",
+          "billingBasis": "normalized requested handles",
+          "minimumTaskUsd": "0.01",
+          "normalProgressiveTiers": ["1-5: $0.01", "6-25: $0.0075", "26-100: $0.006", "101-500: $0.005"],
+          "deepUsdPerHandle": "0.10",
+          "internalActorFailoverHasNoExtraCharge": true,
+          "livePreflightAnd402AreAuthoritative": true
         }
       },
       "documentation": {
         "docs": "https://xcatcher.top/docs/",
         "skill": "https://xcatcher.top/skills/xcatcher/SKILL.md",
         "openapi": "https://xcatcher.top/openapi.yaml",
-        "llms": "https://xcatcher.top/llms.txt"
+        "llms": "https://xcatcher.top/llms.txt",
+        "discoveryMetadata": "https://xcatcher.top/discovery-metadata.json",
+        "preflight": "https://xcatcher.top/api/v1/preflight",
+        "sample": "https://xcatcher.top/api/v1/demo",
+        "cdpBazaarValidationResource": "https://xcatcher.top/api/v1/x402/crawl?users=openai&mode=normal"
       }
     }
   }

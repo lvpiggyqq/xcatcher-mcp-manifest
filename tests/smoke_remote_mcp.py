@@ -24,6 +24,7 @@ def rpc(request_id: int, method: str, params: dict[str, Any]) -> dict[str, Any]:
             "Accept": "application/json, text/event-stream",
             "Content-Type": "application/json",
             "User-Agent": "xcatcher-public-smoke/1.0",
+            "X-Xcatcher-Source": "internal-eval",
         },
     )
     with urllib.request.urlopen(request, timeout=20) as response:

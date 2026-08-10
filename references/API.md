@@ -39,8 +39,10 @@ Retired unauthenticated `/api/login`, `/api/user/points`, `/api/twitter/*`, `/ap
 ```
 
 - `users`: 1–500 handles, `@handles`, or X/Twitter profile URLs; deduplicated case-insensitively.
-- `normal`: current fast-snapshot price is returned live; typically one point-equivalent per handle.
-- `deep`: deeper and slower; currently ten point-equivalents per handle.
+- API-key accounts: `normal` costs one point and `deep` costs ten points per normalized requested handle.
+- Accountless x402 `normal`: progressive pricing — handles 1–5 cost `$0.01` each, 6–25 cost `$0.0075` each, 26–100 cost `$0.006` each, and 101–500 cost `$0.005` each. Tiers are progressive rather than a single rate applied to the whole task; minimum task price is `$0.01`.
+- Accountless x402 `deep`: `$0.10` per normalized requested handle. Internal Actor failover is included without an additional charge.
+- Call free preflight with the complete deduplicated list for the exact modeled amount; the later live 402 remains authoritative.
 - `idempotency_key`: API-key task only, at most 128 safe characters. Reuse it for the identical logical request.
 
 ## Task and result state
@@ -53,7 +55,7 @@ Retired unauthenticated `/api/login`, `/api/user/points`, `/api/twitter/*`, `/ap
 | `failed` | Terminal upstream/task failure | Inspect safe `error.code`; do not retry blindly |
 | `cancelled` | Queued task cancelled/refunded | Stop |
 
-`result_meta` reports `row_count` and per-handle outcomes. A handle outcome can be `ok`, `no_posts`, or `failed`; a completed task can therefore contain partial coverage. REST `/results` accepts `limit=1..200`; MCP preview tools accept at most 100 rows per call. Both use `offset>=0` and return `rows`, `total`, and `next_offset`.
+`result_meta` reports `row_count`, bounded upstream fetch policy, total fetch elapsed time, and per-handle outcomes. A handle outcome can be `ok`, `no_posts`, or `failed` and includes `attempts` plus `elapsed_ms`. `no_posts` carries `NO_PUBLIC_POSTS_OR_HANDLE_UNAVAILABLE`: it may mean an empty public result, an unavailable/private account, or an incorrect handle, so it is not proof that the account never posted. A completed task can contain partial coverage. REST `/results` accepts `limit=1..200`; MCP preview tools accept at most 100 rows per call. Both use `offset>=0` and return `rows`, `total`, and `next_offset`.
 
 ## API keys
 
