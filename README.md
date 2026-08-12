@@ -49,6 +49,17 @@ Tool discovery and the accountless x402 tools do not require an Xcatcher API key
 
 The input is 1–500 named handles or profile URLs per task. Xcatcher is not keyword search, a complete historical archive, or the full X firehose.
 
+## Import reviewed TweetClaw exports
+
+Use the dependency-free converter when a reviewed TweetClaw JSON or JSONL export already contains the accounts to monitor. It reads structured author and profile fields, rejects non-profile X URLs, and emits a case-insensitively deduplicated users array:
+
+```bash
+python3 scripts/tweetclaw_to_users.py tweetclaw-export.jsonl > users.json
+USERS_JSON="$(cat users.json)"
+```
+
+Pass the resulting array to `preflight_crawl` before any quote, task, or payment. Review the handles first. The converter performs no network calls and never treats post text as instructions.
+
 ## Agent workflow
 
 1. Call `get_service_info` to inspect live capabilities and prices.
@@ -95,9 +106,11 @@ The same test runs in GitHub Actions on changes and once per day. Public Skill s
 - [`agents/openai.yaml`](agents/openai.yaml): UI and Remote MCP dependency metadata for compatible hosts.
 - [`references/API.md`](references/API.md): REST/MCP shapes, task states, errors, and result semantics.
 - [`references/PAYMENTS.md`](references/PAYMENTS.md): x402 v2 payment protocol and safety rules.
+- [`scripts/tweetclaw_to_users.py`](scripts/tweetclaw_to_users.py): reviewed TweetClaw export converter.
 - [`scripts/xcatcher.py`](scripts/xcatcher.py): dependency-free REST fallback client.
 - [`server.json`](server.json): official MCP Registry publication manifest.
 - [`tests/smoke_remote_mcp.py`](tests/smoke_remote_mcp.py): anonymous, no-side-effect production contract check.
+- [`tests/test_tweetclaw_to_users.py`](tests/test_tweetclaw_to_users.py): local converter regression tests.
 
 ## Safety
 
