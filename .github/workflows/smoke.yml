@@ -19,5 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Test reviewed export conversion
+        run: python3 -m unittest tests/test_tweetclaw_to_users.py
       - name: Check Remote MCP discovery and free onboarding
         run: python3 tests/smoke_remote_mcp.py
